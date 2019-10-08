@@ -7,3 +7,12 @@
 ~i_*
 ig_*
 zzzig_*
+bin/
+log/
+
+/bin
+/pkg
+/log
+/tmp
+*.apk
+*.rdb
