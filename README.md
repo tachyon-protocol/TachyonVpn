@@ -8,8 +8,8 @@
 	* Run as VPN Server
 		* listen ports, start VPN service and register on the Router
 * Router will be a single server for test in this version
-		* forward data between clients and servers
-		* clients and servers will not connect to each other in this version
+    * forward data between clients and servers
+    * clients and servers will not connect to each other in this version
 * Protocol Layers
 	* VPN Protocol Layer
 		* Packet Type
