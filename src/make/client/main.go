@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwIo"
 	"github.com/tachyon-protocol/udw/udwLog"
@@ -17,7 +18,7 @@ func main() {
 	const vpnServerIp = ""
 	tun, err := createTun(vpnServerIp)
 	udwErr.PanicIfError(err)
-	conn, err := net.Dial("tcp", vpnServerIp+":1234")
+	conn, err := net.Dial("tcp", vpnServerIp+":29433")
 	udwErr.PanicIfError(err)
 	go func() {
 		tunReadBuf := make([]byte, 2 << 20)
