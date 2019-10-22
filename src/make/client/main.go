@@ -2,31 +2,49 @@ package main
 
 import (
 	"errors"
-	"fmt"
+	"github.com/tachyon-protocol/udw/udwBytes"
+	"github.com/tachyon-protocol/udw/udwConsole"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwIo"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwIPNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
+	"github.com/tachyon-protocol/udw/udwRand"
 	"io"
 	"net"
+	"os"
 	"sync"
+	"tachyonSimpleVpnPacket"
 )
 
 func main() {
-	const vpnServerIp = ""
+	if len(os.Args) != 2 {
+		panic("Usage: client 123.123.123.123")
+	}
+	vpnServerIp := os.Args[1]
 	tun, err := createTun(vpnServerIp)
 	udwErr.PanicIfError(err)
 	conn, err := net.Dial("tcp", vpnServerIp+":29433")
 	udwErr.PanicIfError(err)
+	clientId := udwRand.MustCryptoRandUint64()
 	go func() {
 		tunReadBuf := make([]byte, 2 << 20)
+		bufW := udwBytes.NewBufWriter(nil)
+		vpnPacket := &tachyonSimpleVpnPacket.VpnPacket{}
 		for {
 			n, err := tun.Read(tunReadBuf)
 			udwErr.PanicIfError(err)
+			bufW.Reset()
+			vpnPacket.Cmd = tachyonSimpleVpnPacket.CmdData
+			vpnPacket.ClientIdFrom = clientId
+			vpnPacket.Data = tunReadBuf[:n]
+			vpnPacket.Encode(bufW)
+			_, err = conn.Write(bufW.GetBytes())
+			udwErr.PanicIfError(err)
 		}
 	}()
+	udwConsole.WaitForExit()
 }
 
 func createTun (vpnServerIp string) (tun io.ReadWriteCloser, err error){
