@@ -78,6 +78,14 @@ func main() {
 		Mask:      net.CIDRMask(16, 32),
 	})
 	udwErr.PanicIfError(err)
+	go func() {
+		bufR := make([]byte, 3<<20)
+		for {
+			n, err := tun.Read(bufR)
+			udwErr.PanicIfError(err)
+
+		}
+	}()
 	for {
 		conn, err := ln.Accept()
 		udwErr.PanicIfError(err)
