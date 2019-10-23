@@ -1,4 +1,4 @@
-package tachyonSimpleVpnPacket
+package tachyonSimpleVpnProtocol
 
 import (
 	"github.com/tachyon-protocol/udw/udwBytes"

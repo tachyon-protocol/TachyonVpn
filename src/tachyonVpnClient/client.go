@@ -8,24 +8,18 @@ import (
 	"github.com/tachyon-protocol/udw/udwConsole"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwIo"
+	"github.com/tachyon-protocol/udw/udwIpPacket"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwIPNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
-	"github.com/tachyon-protocol/udw/udwRand"
 	"io"
 	"net"
 	"os"
 	"strconv"
 	"sync"
-	"tachyonSimpleVpnPacket"
+	"tachyonSimpleVpnProtocol"
 )
-
-const VpnPort = 29443
-
-func GetClientId() uint64 {
-	return udwRand.MustCryptoRandUint64()
-}
 
 func ClientRun() {
 	if len(os.Args) != 2 {
@@ -34,24 +28,43 @@ func ClientRun() {
 	vpnServerIp := os.Args[1]
 	tun, err := clientCreateTun(vpnServerIp)
 	udwErr.PanicIfError(err)
-	conn, err := net.Dial("tcp", vpnServerIp+":"+strconv.Itoa(VpnPort))
+	conn, err := net.Dial("tcp", vpnServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 	udwErr.PanicIfError(err)
 	fmt.Println("Connected ✔")
-	clientId := GetClientId()
+	clientId := tachyonSimpleVpnProtocol.GetClientId()
 	go func() {
-		tunReadBuf := make([]byte, 2<<20)
+		bufR := make([]byte, 2<<20)
 		bufW := udwBytes.NewBufWriter(nil)
-		vpnPacket := &tachyonSimpleVpnPacket.VpnPacket{}
+		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
 		for {
-			n, err := tun.Read(tunReadBuf)
+			n, err := tun.Read(bufR)
 			udwErr.PanicIfError(err)
-			vpnPacket.Cmd = tachyonSimpleVpnPacket.CmdData
+			vpnPacket.Cmd = tachyonSimpleVpnProtocol.CmdData
 			vpnPacket.ClientIdFrom = clientId
-			vpnPacket.Data = tunReadBuf[:n]
+			vpnPacket.Data = bufR[:n]
 			bufW.Reset()
 			vpnPacket.Encode(bufW)
 			err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(conn, bufW.GetBytes())
 			udwErr.PanicIfError(err)
+		}
+	}()
+	go func() {
+		bufR := make([]byte, 3<<20)
+		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
+		for {
+			out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
+			udwErr.PanicIfError(err)
+			err = vpnPacket.Decode(out)
+			udwErr.PanicIfError(err)
+			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
+			if errMsg != "" {
+				panic("parse IPv4 failed:" + errMsg)
+			}
+			_, err = tun.Write(ipPacket.SerializeToBuf())
+			if err != nil {
+				//noinspection SpellCheckingInspection
+				udwLog.Log("[wmwa2fyr9e] TUN Write error", err)
+			}
 		}
 	}()
 	udwConsole.WaitForExit()
@@ -66,7 +79,7 @@ func clientCreateTun(vpnServerIp string) (tun io.ReadWriteCloser, err error) {
 		DstIp:        vpnClientIp,
 		FirstIp:      vpnClientIp,
 		DhcpServerIp: vpnClientIp,
-		Mtu:          tachyonSimpleVpnPacket.Mtu,
+		Mtu:          tachyonSimpleVpnProtocol.Mtu,
 		Mask:         net.CIDRMask(30, 32),
 	}
 	err = udwTapTun.CreateIpv4Tun(tunCreateCtx)

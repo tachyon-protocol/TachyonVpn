@@ -1,7 +1,6 @@
 package tachyonVpnClient
 
 import (
-	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwErr"
@@ -12,8 +11,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"tachyonSimpleVpnPacket"
-	"tachyonVpnClient"
+	"tachyonSimpleVpnProtocol"
 )
 
 type vpnClient struct {
@@ -41,6 +39,9 @@ const maxCountVpnIp = 1 << 16
 
 func getClient(clientId uint64, conn net.Conn) *vpnClient {
 	gLocker.Lock()
+	if gClientMap == nil {
+		gClientMap = map[uint64]*vpnClient{}
+	}
 	client := gClientMap[clientId]
 	if client != nil {
 		gLocker.Unlock()
@@ -108,7 +109,7 @@ func getClientByVpnIp(vpnIp net.IP) *vpnClient {
 }
 
 func ServerRun() {
-	ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonVpnClient.VpnPort))
+	ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 	udwErr.PanicIfError(err)
 	tun, err := udwTapTun.NewTun("")
 	udwErr.PanicIfError(err)
@@ -116,11 +117,11 @@ func ServerRun() {
 		IfaceName: tun.Name(),
 		SrcIp:     udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, 2, nil),
 		DstIp:     udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, 1, nil),
-		Mtu:       tachyonSimpleVpnPacket.Mtu,
+		Mtu:       tachyonSimpleVpnProtocol.Mtu,
 		Mask:      net.CIDRMask(16, 32),
 	})
 	udwErr.PanicIfError(err)
-	clientId := tachyonVpnClient.GetClientId()
+	clientId := tachyonSimpleVpnProtocol.GetClientId()
 	go func() {
 		bufR := make([]byte, 3<<20)
 		bufW := udwBytes.NewBufWriter(nil)
@@ -141,12 +142,12 @@ func ServerRun() {
 				udwLog.Log("[rdtp9rk84m] TUN Read no such client")
 				continue
 			}
-			responseVpnPacket := &tachyonSimpleVpnPacket.VpnPacket{
+			responseVpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
 				ClientIdFrom: clientId,
-				Cmd:          tachyonSimpleVpnPacket.CmdData,
+				Cmd:          tachyonSimpleVpnProtocol.CmdData,
 			}
-			ipPacket.SetDstIp__NoRecomputeCheckSum(READONLY_vpnIpStart)
-			ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnPacket.Mss)
+			ipPacket.SetDstIp__NoRecomputeCheckSum(READONLY_vpnIpClient)
+			ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
 			ipPacket.RecomputeCheckSum()
 			responseVpnPacket.Data = ipPacket.SerializeToBuf()
 			bufW.Reset()
@@ -160,7 +161,7 @@ func ServerRun() {
 		udwErr.PanicIfError(err)
 		go func() {
 			bufR := make([]byte, 3<<20)
-			vpnPacket := &tachyonSimpleVpnPacket.VpnPacket{}
+			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
 			vpnIpBufW := udwBytes.NewBufWriter(nil)
 			for {
 				out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
@@ -172,9 +173,9 @@ func ServerRun() {
 				if errMsg != "" {
 					panic("parse IPv4 failed:" + errMsg)
 				}
-				vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(startVpnIp, uint32(client.vpnIpOffset), vpnIpBufW)
+				vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), vpnIpBufW)
 				ipPacket.SetSrcIp__NoRecomputeCheckSum(vpnIp)
-				ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnPacket.Mss)
+				ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
 				ipPacket.RecomputeCheckSum()
 				tun.WriteWithBuffer(ipPacket.SerializeToBuf())
 			}
