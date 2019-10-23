@@ -2,6 +2,8 @@ package tachyonSimpleVpnProtocol
 
 import "github.com/tachyon-protocol/udw/udwRand"
 
+const Debug = true
+
 const (
 	overheadEncrypt      = 0
 	overheadVpnHeader    = 1
