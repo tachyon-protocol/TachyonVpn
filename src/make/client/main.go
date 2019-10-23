@@ -2,6 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwConsole"
 	"github.com/tachyon-protocol/udw/udwErr"
@@ -25,8 +27,9 @@ func main() {
 	vpnServerIp := os.Args[1]
 	tun, err := createTun(vpnServerIp)
 	udwErr.PanicIfError(err)
-	conn, err := net.Dial("tcp", vpnServerIp+":29433")
+	conn, err := net.Dial("tcp", vpnServerIp+":29443")
 	udwErr.PanicIfError(err)
+	fmt.Println("Connected ✔")
 	clientId := udwRand.MustCryptoRandUint64()
 	go func() {
 		tunReadBuf := make([]byte, 2 << 20)
@@ -40,7 +43,7 @@ func main() {
 			vpnPacket.ClientIdFrom = clientId
 			vpnPacket.Data = tunReadBuf[:n]
 			vpnPacket.Encode(bufW)
-			_, err = conn.Write(bufW.GetBytes())
+			err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(conn, bufW.GetBytes())
 			udwErr.PanicIfError(err)
 		}
 	}()
@@ -56,7 +59,7 @@ func createTun (vpnServerIp string) (tun io.ReadWriteCloser, err error){
 		DstIp:        vpnClientIp,
 		FirstIp:      vpnClientIp,
 		DhcpServerIp: vpnClientIp,
-		Mtu:          1300, //TODO
+		Mtu:          tachyonSimpleVpnPacket.Mtu,
 		Mask:         net.CIDRMask(30, 32),
 	}
 	err = udwTapTun.CreateIpv4Tun(tunCreateCtx)
