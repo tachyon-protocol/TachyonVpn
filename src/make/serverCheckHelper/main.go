@@ -12,6 +12,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"sync"
 )
 
 func main() {
@@ -30,10 +31,18 @@ CheckHelper [ServerId]
 		os.Exit(-1)
 		return
 	}
+	gLocker :=sync.Mutex{}
+	gIsCloser:=false
 	go func() {
 		err := http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(serverId))
 		}))
+		gLocker.Lock()
+		isCloser:=gIsCloser
+		gLocker.Unlock()
+		if isCloser{
+			return
+		}
 		if err != nil {
 			fmt.Println("http.Serve fail " + err.Error())
 			os.Exit(-1)
@@ -64,6 +73,9 @@ CheckHelper [ServerId]
 	fmt.Println("CheckHelper ✔")
 	fmt.Println("use Ctrl+C or kill " + strconv.Itoa(os.Getpid()) + " to close it.")
 	waitForExit()
+	gLocker.Lock()
+	gIsCloser = true
+	gLocker.Unlock()
 	l.Close()
 }
 
