@@ -27,5 +27,5 @@ func main() {
 	pkgName := filepath.Base(pkgPath)
 	fmt.Println("build successfully", pkgName, _os, "/", arch)
 	udwSsh.MustScpToRemoteDefault(serverIp, resp.GetOutputExeFilePath(), "/usr/local/bin/"+pkgName)
-	udwSsh.MustRpcSshDefault(serverIp, pkgName)
+	//udwSsh.MustRpcSshDefault(serverIp, pkgName)
 }
