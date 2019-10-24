@@ -96,7 +96,7 @@ func clientCreateTun(vpnServerIp string) (tun io.ReadWriteCloser, err error) {
 	tunNamed := tunCreateCtx.ReturnTun
 	vpnGatewayIp := vpnClientIp
 	err = udwErr.PanicToError(func() {
-		udwNet.MustSetDnsServerAddr("8.8.8.8")
+		configLocalNetwork()
 		ctx := udwNet.NewRouteContext()
 		for _, ipNet := range includeIpNetSet.GetIpv4NetList() {
 			goIpNet := ipNet.ToGoIPNet()
@@ -115,7 +115,7 @@ func clientCreateTun(vpnServerIp string) (tun io.ReadWriteCloser, err error) {
 			closeOnce.Do(func() {
 				_ = tunNamed.Close()
 				err := udwErr.PanicToError(func() {
-					udwNet.MustSetDnsServerToDefault()
+					recoverLocalNetwork()
 				})
 				if err != nil {
 					udwLog.Log("error", "uninstallAllPassRoute", err.Error())
