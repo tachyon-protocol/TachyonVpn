@@ -11,6 +11,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
+	"github.com/tachyon-protocol/udw/udwSys"
 	"net"
 	"strconv"
 	"strings"
@@ -164,6 +165,7 @@ func ServerRun() {
 		Mask:      net.CIDRMask(16, 32),
 	})
 	udwErr.PanicIfError(err)
+	networkConfig()
 	clientId := tachyonSimpleVpnProtocol.GetClientId()
 	go func() {
 		bufR := make([]byte, 3<<20)
