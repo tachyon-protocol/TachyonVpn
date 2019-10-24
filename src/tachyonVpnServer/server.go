@@ -1,6 +1,7 @@
 package tachyonVpnClient
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
@@ -12,6 +13,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
 	"github.com/tachyon-protocol/udw/udwSys"
+	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
 	"net"
 	"strconv"
 	"strings"
@@ -202,12 +204,19 @@ func ServerRun() {
 		}
 	}()
 	fmt.Println("Server started ✔")
+	certs := []tls.Certificate{
+		*udwTlsSelfSignCertV2.GetTlsCertificate(),
+	}
 	for {
 		conn, err := ln.Accept()
 		udwErr.PanicIfError(err)
 		if tachyonSimpleVpnProtocol.Debug {
 			udwLog.Log("New Conn", conn.RemoteAddr())
 		}
+		conn = tls.Server(conn, &tls.Config{
+			Certificates: certs,
+			NextProtos:   []string{"http/1.1"},
+		})
 		go func() {
 			bufR := make([]byte, 3<<20)
 			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
