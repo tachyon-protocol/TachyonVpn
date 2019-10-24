@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
+	"github.com/tachyon-protocol/udw/udwCmd"
 	"github.com/tachyon-protocol/udw/udwErr"
+	"github.com/tachyon-protocol/udw/udwFile"
 	"github.com/tachyon-protocol/udw/udwIpPacket"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"tachyonSimpleVpnProtocol"
 )
@@ -107,6 +110,45 @@ func getClientByVpnIp(vpnIp net.IP) *vpnClient {
 		return nil
 	}
 	return client
+}
+
+var (
+	networkConfigOnce                  = &sync.Once{}
+	networkConfigIptablesConfigContent = []byte(`*filter
+COMMIT
+*mangle
+-A PREROUTING -s 172.20.0.0/16 -p tcp -j TPROXY --on-port 23498 --on-ip 127.0.0.1 --tproxy-mark 0x1/0x1
+COMMIT
+*nat
+-A POSTROUTING -s 172.20.0.0/16 -p udp -j MASQUERADE
+-A POSTROUTING -s 172.21.0.0/16 -j MASQUERADE
+COMMIT
+`)
+)
+
+func networkConfig() {
+	networkConfigOnce.Do(func() {
+		mustIptablesRestoreExist()
+		udwSys.SetIpForwardOn()
+		const iptablesConfigFile = `/tmp/iptables.config`
+		udwFile.MustWriteFile(iptablesConfigFile, networkConfigIptablesConfigContent)
+		udwCmd.MustRun("iptables-restore " + iptablesConfigFile)
+		b := udwCmd.MustRunAndReturnOutput("ip rule")
+		if !strings.Contains(string(b), "fwmark 0x1 lookup 100") {
+			udwCmd.MustRun("ip rule add fwmark 1 lookup 100")
+		}
+		_ = udwCmd.Run("ip route add local 0.0.0.0/0 dev lo table 100")
+	})
+}
+
+func mustIptablesRestoreExist(){
+	const cmd = "iptables-restore"
+	if udwCmd.Exist(cmd)==false{
+		udwCmd.MustRun("apt install -y iptables")
+	}
+	if udwCmd.Exist(cmd)==false {
+		panic("7fgwy8n93j")
+	}
 }
 
 func ServerRun() {
