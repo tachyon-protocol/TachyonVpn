@@ -199,8 +199,7 @@ func ServerRun() {
 			responseVpnPacket.Data = ipPacket.SerializeToBuf()
 			bufW.Reset()
 			responseVpnPacket.Encode(bufW)
-			err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(client.conn, bufW.GetBytes())
-			udwErr.PanicIfError(err)
+			_ = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(client.conn, bufW.GetBytes())
 		}
 	}()
 	fmt.Println("Server started ✔")
