@@ -1,15 +1,22 @@
 package tachyonVpnClient
 
 import (
+	"crypto/tls"
+	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
+	"github.com/tachyon-protocol/udw/udwCmd"
 	"github.com/tachyon-protocol/udw/udwErr"
+	"github.com/tachyon-protocol/udw/udwFile"
 	"github.com/tachyon-protocol/udw/udwIpPacket"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
+	"github.com/tachyon-protocol/udw/udwSys"
+	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"tachyonSimpleVpnProtocol"
 )
@@ -108,6 +115,45 @@ func getClientByVpnIp(vpnIp net.IP) *vpnClient {
 	return client
 }
 
+var (
+	networkConfigOnce                  = &sync.Once{}
+	networkConfigIptablesConfigContent = []byte(`*filter
+COMMIT
+*mangle
+-A PREROUTING -s 172.20.0.0/16 -p tcp -j TPROXY --on-port 23498 --on-ip 127.0.0.1 --tproxy-mark 0x1/0x1
+COMMIT
+*nat
+-A POSTROUTING -s 172.20.0.0/16 -p udp -j MASQUERADE
+-A POSTROUTING -s 172.21.0.0/16 -j MASQUERADE
+COMMIT
+`)
+)
+
+func networkConfig() {
+	networkConfigOnce.Do(func() {
+		mustIptablesRestoreExist()
+		udwSys.SetIpForwardOn()
+		const iptablesConfigFile = `/tmp/iptables.config`
+		udwFile.MustWriteFile(iptablesConfigFile, networkConfigIptablesConfigContent)
+		udwCmd.MustRun("iptables-restore " + iptablesConfigFile)
+		b := udwCmd.MustRunAndReturnOutput("ip rule")
+		if !strings.Contains(string(b), "fwmark 0x1 lookup 100") {
+			udwCmd.MustRun("ip rule add fwmark 1 lookup 100")
+		}
+		_ = udwCmd.Run("ip route add local 0.0.0.0/0 dev lo table 100")
+	})
+}
+
+func mustIptablesRestoreExist(){
+	const cmd = "iptables-restore"
+	if udwCmd.Exist(cmd)==false{
+		udwCmd.MustRun("apt install -y iptables")
+	}
+	if udwCmd.Exist(cmd)==false {
+		panic("7fgwy8n93j")
+	}
+}
+
 func ServerRun() {
 	ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 	udwErr.PanicIfError(err)
@@ -121,6 +167,7 @@ func ServerRun() {
 		Mask:      net.CIDRMask(16, 32),
 	})
 	udwErr.PanicIfError(err)
+	networkConfig()
 	clientId := tachyonSimpleVpnProtocol.GetClientId()
 	go func() {
 		bufR := make([]byte, 3<<20)
@@ -156,28 +203,50 @@ func ServerRun() {
 			udwErr.PanicIfError(err)
 		}
 	}()
+	fmt.Println("Server started ✔")
+	certs := []tls.Certificate{
+		*udwTlsSelfSignCertV2.GetTlsCertificate(),
+	}
 	for {
 		conn, err := ln.Accept()
 		udwErr.PanicIfError(err)
+		if tachyonSimpleVpnProtocol.Debug {
+			udwLog.Log("New Conn", conn.RemoteAddr())
+		}
+		conn = tls.Server(conn, &tls.Config{
+			Certificates: certs,
+			NextProtos:   []string{"http/1.1"},
+		})
 		go func() {
 			bufR := make([]byte, 3<<20)
 			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
 			vpnIpBufW := udwBytes.NewBufWriter(nil)
 			for {
 				out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
-				udwErr.PanicIfError(err)
+				if err != nil {
+					_ = conn.Close()
+					return
+				}
 				err = vpnPacket.Decode(out)
-				udwErr.PanicIfError(err)
+				if err != nil {
+					_ = conn.Close()
+					return
+				}
 				client := getClient(vpnPacket.ClientIdFrom, conn)
 				ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 				if errMsg != "" {
-					panic("parse IPv4 failed:" + errMsg)
+					_ = conn.Close()
+					return
 				}
 				vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), vpnIpBufW)
 				ipPacket.SetSrcIp__NoRecomputeCheckSum(vpnIp)
 				ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
 				ipPacket.RecomputeCheckSum()
-				tun.WriteWithBuffer(ipPacket.SerializeToBuf())
+				_, err = tun.Write(ipPacket.SerializeToBuf())
+				if err != nil {
+					_ = conn.Close()
+					return
+				}
 			}
 		}()
 	}

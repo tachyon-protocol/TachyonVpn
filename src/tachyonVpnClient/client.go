@@ -1,6 +1,7 @@
 package tachyonVpnClient
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
@@ -13,6 +14,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwIPNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
+	"github.com/tachyon-protocol/udw/udwRand"
 	"io"
 	"net"
 	"os"
@@ -30,6 +32,11 @@ func ClientRun() {
 	udwErr.PanicIfError(err)
 	conn, err := net.Dial("tcp", vpnServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 	udwErr.PanicIfError(err)
+	conn = tls.Client(conn, &tls.Config{
+		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5)+".com",
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"http/1.1", "h2"},
+	})
 	fmt.Println("Connected ✔")
 	clientId := tachyonSimpleVpnProtocol.GetClientId()
 	go func() {
