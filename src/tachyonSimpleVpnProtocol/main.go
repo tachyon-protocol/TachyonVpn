@@ -1,4 +1,8 @@
-package tachyonSimpleVpnPacket
+package tachyonSimpleVpnProtocol
+
+import "github.com/tachyon-protocol/udw/udwRand"
+
+const Debug = true
 
 const (
 	overheadEncrypt      = 0
@@ -9,6 +13,8 @@ const (
 	Mtu                  = 1460 - (overheadEncrypt + overheadVpnHeader + overheadIpHeader + overheadUdpHeader)
 	Mss                  = Mtu - (overheadTcpHeaderMax - overheadUdpHeader)
 )
+
+const VpnPort = 29443
 
 const (
 	CmdData    byte = 1
@@ -27,4 +33,8 @@ func (packet *VpnPacket) Reset() {
 	packet.ClientIdFrom = 0
 	packet.ClientIdForwardTo = 0
 	packet.Data = packet.Data[:0]
+}
+
+func GetClientId() uint64 {
+	return udwRand.MustCryptoRandUint64()
 }
