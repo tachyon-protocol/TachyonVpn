@@ -60,10 +60,6 @@ func ClientRun(req ClientRunReq) {
 	go func() {
 		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
 		for {
-			//out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
-			//udwErr.PanicIfError(err)
-			//err = vpnPacket.Decode(out)
-			//udwErr.PanicIfError(err)
 			err := vpnConn.Read(vpnPacket)
 			udwErr.PanicIfError(err)
 			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
