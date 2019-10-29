@@ -10,46 +10,52 @@ import (
 	"sync"
 )
 
-func VpnConnectionDial(address string) (*VpnConnection, error) {
-	conn, err := net.Dial("tcp", address)
-	if err != nil {
-		//noinspection SpellCheckingInspection
-		return nil, errors.New("[ubb6g6pyjw]" + err.Error())
-	}
-	conn = tls.Client(conn, &tls.Config{
+type VpnConnection struct {
+	req       VpnConnectionNewReq
+	locker    sync.Mutex
+	buf       *udwBytes.BufWriter
+	vpnPacket *VpnPacket
+}
+
+type VpnConnectionNewReq struct {
+	ClientId uint64
+	IsRelay  bool
+	RawConn  net.Conn
+}
+
+func VpnConnectionNew(req VpnConnectionNewReq) *VpnConnection {
+	 req.RawConn = tls.Client(req.RawConn, &tls.Config{
 		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"http/1.1", "h2"},
 	})
 	return &VpnConnection{
-		rawConn: conn,
-		bufR:    udwBytes.NewBufWriter(nil),
-		bufW:    udwBytes.NewBufWriter(nil),
-	}, nil
-}
-
-func VpnConnectionNew(conn net.Conn) (*VpnConnection, error){
-}
-
-type VpnConnection struct {
-	rawConn net.Conn
-	bufW    *udwBytes.BufWriter
-	bufR    *udwBytes.BufWriter
-	locker  sync.Mutex
-}
-
-func (conn *VpnConnection) Read(packet *VpnPacket) error {
-	conn.bufR.Reset()
-	err := udwBinary.ReadByteSliceWithUint32LenToBufW(conn.rawConn, conn.bufR)
-	if err != nil {
-		return errors.New("[qz2qq4n43m]" + err.Error())
+		req: req,
 	}
-	err = packet.Decode(conn.bufR.GetBytes())
+}
+
+//TODO not complete implement of stream
+func (conn *VpnConnection) Read(buf []byte) (n int, err error) {
+	conn.buf.Reset()
+	conn.locker.Lock()
+	if conn.buf == nil {
+		conn.buf = udwBytes.NewBufWriter(nil)
+	}
+	err = udwBinary.ReadByteSliceWithUint32LenToBufW(conn.req.RawConn, conn.buf)
+	if err != nil {
+		conn.locker.Unlock()
+		return 0, errors.New("[qz2qq4n43m]" + err.Error())
+	}
+	if conn.vpnPacket ==  nil {
+		conn.vpnPacket = &VpnPacket{}
+	}
+	err = conn.vpnPacket.Decode(conn.buf.GetBytes())
 	if err != nil {
 		//noinspection SpellCheckingInspection
-		return errors.New("[sjub59zv6y]" + err.Error())
+		return 0, errors.New("[sjub59zv6y]" + err.Error())
 	}
-	return nil
+	n = copy(buf, conn.vpnPacket.Data)
+	return n, nil
 }
 
 func (conn *VpnConnection) Write(packet *VpnPacket) error {
