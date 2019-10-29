@@ -19,50 +19,50 @@ import (
 )
 
 type ClientRunReq struct {
-	IsForward           bool
-	ForwardRelayIp      string
-	ForwardExitClientId string
-
-	ExitIp string
+	IsRelay      bool
+	ServerIp     string
+	ExitClientId uint64
 }
 
 func ClientRun(req ClientRunReq) {
-	vpnServerIp := req.ExitIp
-	if req.IsForward {
-		vpnServerIp = req.ForwardRelayIp
-	}
-	tun, err := clientCreateTun(vpnServerIp)
+	clientId := tachyonSimpleVpnProtocol.GetClientId()
+	tun, err := clientCreateTun(req.ServerIp)
 	udwErr.PanicIfError(err)
-	vpnConn, err := tachyonSimpleVpnProtocol.VpnConnectionDial(vpnServerIp + ":" + strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
+	vpnConn, err := net.Dial("tcp", req.ServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 	udwErr.PanicIfError(err)
+	vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
+		ClientIdFrom:      clientId,
+		ClientIdForwardTo: req.ExitClientId,
+		IsRelay:           req.IsRelay,
+		RawConn:           vpnConn,
+	})
 	serverType := "EXIT"
-	if req.IsForward {
+	if req.IsRelay {
 		serverType = "RELAY"
 	}
 	fmt.Println("Connected to", serverType, "Server ✔")
-	if req.IsForward {
-
+	if req.IsRelay {
+		vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
+			ClientIdFrom:      clientId,
+			ClientIdForwardTo: req.ExitClientId,
+			RawConn:           vpnConn,
+		})
 	}
-	clientId := tachyonSimpleVpnProtocol.GetClientId()
 	go func() {
-		bufR := make([]byte, 2<<20)
-		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
+		buf := make([]byte, 2<<20)
 		for {
-			n, err := tun.Read(bufR)
+			n, err := tun.Read(buf)
 			udwErr.PanicIfError(err)
-			vpnPacket.Cmd = tachyonSimpleVpnProtocol.CmdData
-			vpnPacket.ClientIdFrom = clientId
-			vpnPacket.Data = bufR[:n]
-			err = vpnConn.Write(vpnPacket)
+			_, err = vpnConn.Write(buf[:n])
 			udwErr.PanicIfError(err)
 		}
 	}()
 	go func() {
-		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
+		buf := make([]byte, 2<<20)
 		for {
-			err := vpnConn.Read(vpnPacket)
+			n, err := vpnConn.Read(buf)
 			udwErr.PanicIfError(err)
-			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
+			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(buf[:n])
 			if errMsg != "" {
 				panic("parse IPv4 failed:" + errMsg)
 			}
