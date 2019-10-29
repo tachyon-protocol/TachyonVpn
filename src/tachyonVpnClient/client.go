@@ -39,15 +39,13 @@ func ClientRun(req ClientRunReq) {
 	serverType := "EXIT"
 	if req.IsRelay {
 		serverType = "RELAY"
-	}
-	fmt.Println("Connected to", serverType, "Server ✔")
-	if req.IsRelay {
 		vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
 			ClientIdFrom:      clientId,
 			ClientIdForwardTo: req.ExitClientId,
 			RawConn:           vpnConn,
 		})
 	}
+	fmt.Println("Connected to", serverType, "Server ✔")
 	go func() {
 		buf := make([]byte, 2<<20)
 		for {
