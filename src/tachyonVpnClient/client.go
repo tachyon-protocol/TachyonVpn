@@ -41,7 +41,6 @@ func ClientRun(req ClientRunReq) {
 	}
 	fmt.Println("Connected to", serverType, "Server ✔")
 	if req.IsForward {
-
 	}
 	clientId := tachyonSimpleVpnProtocol.GetClientId()
 	go func() {

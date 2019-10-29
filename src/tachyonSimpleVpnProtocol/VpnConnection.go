@@ -28,6 +28,9 @@ func VpnConnectionDial(address string) (*VpnConnection, error) {
 	}, nil
 }
 
+func VpnConnectionNew(conn net.Conn) (*VpnConnection, error){
+}
+
 type VpnConnection struct {
 	rawConn net.Conn
 	bufW    *udwBytes.BufWriter
