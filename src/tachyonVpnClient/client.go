@@ -47,7 +47,7 @@ func ClientRun(req ClientRunReq) {
 	}
 	fmt.Println("Connected to", serverType, "Server ✔")
 	go func() {
-		buf := make([]byte, 2<<20)
+		buf := make([]byte, 3<<10)
 		for {
 			n, err := tun.Read(buf)
 			udwErr.PanicIfError(err)
@@ -56,7 +56,7 @@ func ClientRun(req ClientRunReq) {
 		}
 	}()
 	go func() {
-		buf := make([]byte, 2<<20)
+		buf := make([]byte, 3<<10)
 		for {
 			n, err := vpnConn.Read(buf)
 			udwErr.PanicIfError(err)

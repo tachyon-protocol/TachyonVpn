@@ -11,6 +11,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
+	"github.com/tachyon-protocol/udw/udwRand"
 	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
 	"net"
 	"strconv"
@@ -95,12 +96,31 @@ func ServerRun(req ServerRunReq) {
 	if req.UseRelay {
 		vpnConn, err := net.Dial("tcp", req.RelayServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 		udwErr.PanicIfError(err)
-		vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
-			ClientIdFrom: clientId,
-			IsRelay:      true,
-			RawConn:      vpnConn,
-		})
 		fmt.Println("Server connected to relay server[", req.RelayServerIp, "] ✔")
+		vpnConn = tls.Client(vpnConn, &tls.Config{
+			ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
+			InsecureSkipVerify: true,
+			NextProtos:         []string{"http/1.1", "h2"},
+		})
+		go func() {
+			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
+			buf := udwBytes.NewBufWriter(nil)
+			for {
+				err := udwBinary.ReadByteSliceWithUint32LenToBufW(vpnConn, buf)
+				udwErr.PanicIfError(err)
+				err  = vpnPacket.Decode(buf.GetBytes())
+				udwErr.PanicIfError(err)
+				if vpnPacket.Cmd == tachyonSimpleVpnProtocol.CmdForward {
+					if vpnPacket.ClientIdForwardTo == clientId {
+
+					} else {
+						fmt.Println("[vw9tm9rv2s] not forward to self")
+					}
+				} else {
+					fmt.Println("[d39e7d859m]Unexpected Cmd[",vpnPacket.Cmd,"]")
+				}
+			}
+		}()
 	} else {
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 		udwErr.PanicIfError(err)
