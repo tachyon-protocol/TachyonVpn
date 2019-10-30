@@ -1,11 +1,8 @@
 package tachyonVpnClient
 
 import (
-	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/tachyon-protocol/udw/udwBinary"
-	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwConsole"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwIo"
@@ -14,56 +11,56 @@ import (
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwIPNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
-	"github.com/tachyon-protocol/udw/udwRand"
 	"io"
 	"net"
-	"os"
 	"strconv"
 	"sync"
 	"tachyonSimpleVpnProtocol"
 )
 
-func ClientRun() {
-	if len(os.Args) != 2 {
-		panic("Usage: client 123.123.123.123")
-	}
-	vpnServerIp := os.Args[1]
-	tun, err := clientCreateTun(vpnServerIp)
-	udwErr.PanicIfError(err)
-	conn, err := net.Dial("tcp", vpnServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
-	udwErr.PanicIfError(err)
-	conn = tls.Client(conn, &tls.Config{
-		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5)+".com",
-		InsecureSkipVerify: true,
-		NextProtos:         []string{"http/1.1", "h2"},
-	})
-	fmt.Println("Connected ✔")
+type ClientRunReq struct {
+	IsRelay      bool
+	ServerIp     string
+	ExitClientId uint64
+}
+
+func ClientRun(req ClientRunReq) {
 	clientId := tachyonSimpleVpnProtocol.GetClientId()
+	tun, err := clientCreateTun(req.ServerIp)
+	udwErr.PanicIfError(err)
+	vpnConn, err := net.Dial("tcp", req.ServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
+	udwErr.PanicIfError(err)
+	vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
+		ClientIdFrom:      clientId,
+		ClientIdForwardTo: req.ExitClientId,
+		IsRelay:           req.IsRelay,
+		RawConn:           vpnConn,
+	})
+	serverType := "EXIT"
+	if req.IsRelay {
+		serverType = "RELAY"
+		vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
+			ClientIdFrom:      clientId,
+			ClientIdForwardTo: req.ExitClientId,
+			RawConn:           vpnConn,
+		})
+	}
+	fmt.Println("Connected to", serverType, "Server ✔")
 	go func() {
-		bufR := make([]byte, 2<<20)
-		bufW := udwBytes.NewBufWriter(nil)
-		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
+		buf := make([]byte, 3<<10)
 		for {
-			n, err := tun.Read(bufR)
+			n, err := tun.Read(buf)
 			udwErr.PanicIfError(err)
-			vpnPacket.Cmd = tachyonSimpleVpnProtocol.CmdData
-			vpnPacket.ClientIdFrom = clientId
-			vpnPacket.Data = bufR[:n]
-			bufW.Reset()
-			vpnPacket.Encode(bufW)
-			err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(conn, bufW.GetBytes())
+			_, err = vpnConn.Write(buf[:n])
 			udwErr.PanicIfError(err)
 		}
 	}()
 	go func() {
-		bufR := make([]byte, 3<<20)
-		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
+		buf := make([]byte, 3<<10)
 		for {
-			out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
+			n, err := vpnConn.Read(buf)
 			udwErr.PanicIfError(err)
-			err = vpnPacket.Decode(out)
-			udwErr.PanicIfError(err)
-			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
+			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(buf[:n])
 			if errMsg != "" {
 				panic("parse IPv4 failed:" + errMsg)
 			}
