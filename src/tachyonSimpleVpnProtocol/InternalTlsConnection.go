@@ -2,12 +2,14 @@ package tachyonSimpleVpnProtocol
 
 import (
 	"github.com/tachyon-protocol/udw/udwBytes"
+	"github.com/tachyon-protocol/udw/udwChan"
+	"io"
 	"sync"
 )
 
 //left  cipher -> tls -> plain
 type internalConnection struct {
-	pipe      chan []byte
+	pipe      *udwChan.ChanBytes
 	locker    sync.Mutex
 	buf       *udwBytes.BufWriter
 	readIndex int
@@ -17,7 +19,12 @@ func (conn *internalConnection) Read(buf []byte) (n int, err error) {
 	conn.locker.Lock()
 	if conn.readIndex == conn.buf.GetLen() {
 		conn.buf.Reset()
-		conn.buf.Write_(<-conn.pipe)
+		data, isClose := conn.pipe.Receive()
+		if isClose {
+			conn.locker.Unlock()
+			return 0, io.ErrClosedPipe
+		}
+		conn.buf.Write_(data)
 		conn.readIndex = 0
 	}
 	_buf := conn.buf.GetBytes()
@@ -28,6 +35,11 @@ func (conn *internalConnection) Read(buf []byte) (n int, err error) {
 }
 
 func (conn *internalConnection) Write(buf []byte) (n int, err error) {
-	conn.pipe <- buf
+	conn.pipe.Send(buf)
 	return len(buf), nil
+}
+
+func (conn *internalConnection) Close() error {
+	conn.pipe.Close()
+	return nil
 }

@@ -3,6 +3,7 @@ package tachyonSimpleVpnProtocol
 import (
 	"fmt"
 	"github.com/tachyon-protocol/udw/udwBytes"
+	"github.com/tachyon-protocol/udw/udwChan"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 func TestInternalTlsConnection(t *testing.T) {
 	conn := &internalConnection{
-		pipe: make(chan []byte),
+		pipe: udwChan.MakeChanBytes(0),
 		buf:  udwBytes.NewBufWriter(nil),
 	}
 	const inputStr = "123456789"
