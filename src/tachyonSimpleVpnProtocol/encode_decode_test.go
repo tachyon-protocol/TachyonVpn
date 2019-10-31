@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func Test_encode_decode_cmdData (t *testing.T) {
+func Test_encode_decode_cmdData(t *testing.T) {
 	clientId := udwRandNewId.NextUint64Id()
 	packet := &VpnPacket{
 		Cmd:          CmdData,
@@ -15,18 +15,18 @@ func Test_encode_decode_cmdData (t *testing.T) {
 		Data:         []byte{0x00},
 	}
 	bufW := &udwBytes.BufWriter{}
-	n := Encode(packet,bufW)
-	udwTest.Equal(n,10)
+	n := packet.Encode(bufW)
+	udwTest.Equal(n, 10)
 	packet.Reset()
 	_buf := bufW.GetBytes()
-	err := Decode(packet, _buf)
-	udwTest.Equal(err,nil)
+	err := packet.Decode(_buf)
+	udwTest.Equal(err, nil)
 	udwTest.Equal(packet.Cmd, CmdData)
 	udwTest.Equal(packet.ClientIdFrom, clientId)
 	udwTest.Equal(packet.Data, []byte{0x00})
 }
 
-func Test_encode_decode_cmdForward (t *testing.T) {
+func Test_encode_decode_cmdForward(t *testing.T) {
 	clientId := udwRandNewId.NextUint64Id()
 	packet := &VpnPacket{
 		Cmd:               CmdForward,
@@ -34,12 +34,12 @@ func Test_encode_decode_cmdForward (t *testing.T) {
 		Data:              []byte{0x00},
 	}
 	bufW := &udwBytes.BufWriter{}
-	n := Encode(packet,bufW)
-	udwTest.Equal(n,10)
+	n := packet.Encode(bufW)
+	udwTest.Equal(n, 10)
 	packet.Reset()
 	_buf := bufW.GetBytes()
-	err := Decode(packet, _buf)
-	udwTest.Equal(err,nil)
+	err := packet.Decode(_buf)
+	udwTest.Equal(err, nil)
 	udwTest.Equal(packet.Cmd, CmdForward)
 	udwTest.Equal(packet.ClientIdForwardTo, clientId)
 	udwTest.Equal(packet.Data, []byte{0x00})
