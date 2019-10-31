@@ -9,23 +9,71 @@ import (
 	"time"
 )
 
-//left  cipher -> tls -> plain
-type internalConnection struct {
+func NewInternalConnectionDual() (cipherConn net.Conn, plainConn net.Conn) {
+	left := &internalConnectionSingle{
+		pipe: udwChan.MakeChanBytes(0),
+		buf:  udwBytes.NewBufWriter(nil),
+	}
+	right := &internalConnectionSingle{
+		pipe: udwChan.MakeChanBytes(0),
+		buf:  udwBytes.NewBufWriter(nil),
+	}
+	return &internalConnectionPeer{
+		readConn:  right,
+		writeConn: left,
+	}, &internalConnectionPeer{
+			readConn:  left,
+			writeConn: right,
+		}
+}
+
+type internalConnectionPeer struct {
+	readConn  *internalConnectionSingle
+	writeConn *internalConnectionSingle
+}
+
+func (conn *internalConnectionPeer) LocalAddr() net.Addr {
+	panic("implement me")
+}
+
+func (conn *internalConnectionPeer) RemoteAddr() net.Addr {
+	panic("implement me")
+}
+
+func (conn *internalConnectionPeer) SetDeadline(t time.Time) error {
+	return nil
+}
+
+func (conn *internalConnectionPeer) SetReadDeadline(t time.Time) error {
+	return nil
+}
+
+func (conn *internalConnectionPeer) SetWriteDeadline(t time.Time) error {
+	return nil
+}
+
+func (conn *internalConnectionPeer) Read(buf []byte) (n int, err error) {
+	return conn.readConn.Read(buf)
+}
+
+func (conn *internalConnectionPeer) Write(buf []byte) (n int, err error) {
+	return conn.writeConn.Write(buf)
+}
+
+func (conn *internalConnectionPeer) Close() (err error) {
+	_ = conn.readConn.Close()
+	_ = conn.writeConn.Close()
+	return nil
+}
+
+type internalConnectionSingle struct {
 	pipe      *udwChan.ChanBytes
 	locker    sync.Mutex
 	buf       *udwBytes.BufWriter
 	readIndex int
 }
 
-func (conn *internalConnection) LocalAddr() net.Addr {
-	panic("implement me")
-}
-
-func (conn *internalConnection) RemoteAddr() net.Addr {
-	panic("implement me")
-}
-
-func (conn *internalConnection) Read(buf []byte) (n int, err error) {
+func (conn *internalConnectionSingle) Read(buf []byte) (n int, err error) {
 	conn.locker.Lock()
 	if conn.readIndex == conn.buf.GetLen() {
 		conn.buf.Reset()
@@ -44,24 +92,12 @@ func (conn *internalConnection) Read(buf []byte) (n int, err error) {
 	return n, nil
 }
 
-func (conn *internalConnection) Write(buf []byte) (n int, err error) {
+func (conn *internalConnectionSingle) Write(buf []byte) (n int, err error) {
 	conn.pipe.Send(buf)
 	return len(buf), nil
 }
 
-func (conn *internalConnection) Close() error {
+func (conn *internalConnectionSingle) Close() error {
 	conn.pipe.Close()
-	return nil
-}
-
-func (conn *internalConnection) SetDeadline(t time.Time) error {
-	return nil
-}
-
-func (conn *internalConnection) SetReadDeadline(t time.Time) error {
-	return nil
-}
-
-func (conn *internalConnection) SetWriteDeadline(t time.Time) error {
 	return nil
 }
