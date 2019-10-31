@@ -2,6 +2,7 @@ package tachyonVpnClient
 
 import (
 	"github.com/tachyon-protocol/udw/udwCmd"
+	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwFile"
 	"github.com/tachyon-protocol/udw/udwSys"
 	"net"
@@ -17,7 +18,7 @@ var (
 
 const maxCountVpnIp = 1 << 16
 
-func (s *server) getClient(clientId uint64, connToClient net.Conn) *vpnClient {
+func (s *server) getClient(clientId uint64, connToClient net.Conn, relayConn net.Conn) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
@@ -35,7 +36,20 @@ func (s *server) getClient(clientId uint64, connToClient net.Conn) *vpnClient {
 	if connToClient == nil {
 		cipher, plain := tachyonSimpleVpnProtocol.NewInternalConnectionDual()
 		client.connToClient = plain
-		client.connRelay = cipher
+		client.connRelaySide = cipher
+		go func() {
+			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
+				Cmd               : tachyonSimpleVpnProtocol.CmdData,
+				ClientIdFrom      :
+				ClientIdForwardTo uint64
+				Data              []byte
+			}
+			buf := make([]byte, 3 << 10)
+			for {
+				n, err := client.connRelaySide.Read(buf)
+				udwErr.PanicIfError(err)
+			}
+		}()
 	} else {
 		client.connToClient = connToClient
 	}

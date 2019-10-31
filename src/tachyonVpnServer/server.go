@@ -24,9 +24,9 @@ type vpnClient struct {
 	vpnIpOffset int
 	vpnIp       net.IP
 
-	locker       sync.Mutex
-	connToClient net.Conn
-	connRelay    net.Conn
+	locker        sync.Mutex
+	connToClient  net.Conn
+	connRelaySide net.Conn
 }
 
 type ServerRunReq struct {
@@ -35,6 +35,7 @@ type ServerRunReq struct {
 }
 
 type server struct {
+	clientId uint64
 	locker         sync.Mutex
 	clientMap      map[uint64]*vpnClient
 	vpnIpList      [maxCountVpnIp]*vpnClient
@@ -42,8 +43,8 @@ type server struct {
 }
 
 func (s *server) Run(req ServerRunReq) {
-	selfClientId := tachyonSimpleVpnProtocol.GetClientId()
-	fmt.Println("ClientId:", selfClientId)
+	s.clientId = tachyonSimpleVpnProtocol.GetClientId()
+	fmt.Println("ClientId:", s.clientId)
 
 	tun, err := udwTapTun.NewTun("")
 	udwErr.PanicIfError(err)
@@ -60,7 +61,7 @@ func (s *server) Run(req ServerRunReq) {
 
 	//read thread from TUN
 	go func() {
-		bufR := make([]byte, 3<<20)
+		bufR := make([]byte, 3<<10)
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := tun.Read(bufR)
@@ -80,7 +81,7 @@ func (s *server) Run(req ServerRunReq) {
 				continue
 			}
 			responseVpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
-				ClientIdFrom: selfClientId,
+				ClientIdFrom: s.clientId,
 				Cmd:          tachyonSimpleVpnProtocol.CmdData,
 			}
 			ipPacket.SetDstIp__NoRecomputeCheckSum(READONLY_vpnIpClient)
@@ -108,7 +109,7 @@ func (s *server) Run(req ServerRunReq) {
 				NextProtos:   []string{"http/1.1"},
 			})
 			go func() {
-				bufR := make([]byte, 3<<20)
+				bufR := make([]byte, 3<<10)
 				vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
 				vpnIpBufW := udwBytes.NewBufWriter(nil)
 				for {
@@ -122,7 +123,7 @@ func (s *server) Run(req ServerRunReq) {
 						_ = conn.Close()
 						return
 					}
-					client := s.getClient(vpnPacket.ClientIdFrom, conn)
+					client := s.getClient(vpnPacket.ClientIdFrom, conn, nil)
 					ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 					if errMsg != "" {
 						_ = conn.Close()
@@ -161,10 +162,10 @@ func (s *server) Run(req ServerRunReq) {
 				err = vpnPacket.Decode(buf.GetBytes())
 				udwErr.PanicIfError(err)
 				if vpnPacket.Cmd == tachyonSimpleVpnProtocol.CmdForward {
-					if vpnPacket.ClientIdForwardTo == selfClientId {
-						client := s.getClient(vpnPacket.ClientIdFrom, nil)
+					if vpnPacket.ClientIdForwardTo == s.clientId {
+						client := s.getClient(vpnPacket.ClientIdFrom, nil,relayConn)
 						acceptPipe <- client.connToClient
-						_, err := client.connRelay.Write(vpnPacket.Data)
+						_, err := client.connRelaySide.Write(vpnPacket.Data)
 						if err != nil {
 							udwLog.Log("[dy11zv1eg6]", err)
 						}
