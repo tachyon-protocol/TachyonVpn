@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"tachyonSimpleVpnProtocol"
 )
 
 var (
@@ -16,7 +17,7 @@ var (
 
 const maxCountVpnIp = 1 << 16
 
-func (s *server) getClient(clientId uint64, conn net.Conn) *vpnClient {
+func (s *server) getClient(clientId uint64, connToClient net.Conn) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
@@ -27,10 +28,16 @@ func (s *server) getClient(clientId uint64, conn net.Conn) *vpnClient {
 		return client
 	}
 	client = &vpnClient{
-		id:           clientId,
-		connToClient: conn,
-		locker:       sync.Mutex{},
-		vpnIpOffset:  0,
+		id:          clientId,
+		locker:      sync.Mutex{},
+		vpnIpOffset: 0,
+	}
+	if connToClient == nil {
+		cipher, plain := tachyonSimpleVpnProtocol.NewInternalConnectionDual()
+		client.connToClient = plain
+		client.connRelay = cipher
+	} else {
+		client.connToClient = connToClient
 	}
 	lastIpOffset := s.nextVpnIpIndex
 	for {
@@ -72,7 +79,7 @@ func getVpnIpOffset(ip1 net.IP, ip2 net.IP) int {
 	return out
 }
 
-func (s *server)getClientByVpnIp(vpnIp net.IP) *vpnClient {
+func (s *server) getClientByVpnIp(vpnIp net.IP) *vpnClient {
 	offset := getVpnIpOffset(vpnIp, READONLY_vpnIpStart)
 	if offset < 0 || offset >= maxCountVpnIp {
 		return nil
@@ -116,12 +123,12 @@ func networkConfig() {
 	})
 }
 
-func mustIptablesRestoreExist(){
+func mustIptablesRestoreExist() {
 	const cmd = "iptables-restore"
-	if udwCmd.Exist(cmd)==false{
+	if udwCmd.Exist(cmd) == false {
 		udwCmd.MustRun("apt install -y iptables")
 	}
-	if udwCmd.Exist(cmd)==false {
+	if udwCmd.Exist(cmd) == false {
 		panic("7fgwy8n93j")
 	}
 }

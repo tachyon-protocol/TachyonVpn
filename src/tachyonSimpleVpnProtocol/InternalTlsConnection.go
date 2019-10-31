@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func NewInternalConnectionDual() (cipherConn net.Conn, plainConn net.Conn) {
+func NewInternalConnectionDual() (a net.Conn, b net.Conn) {
 	left := &internalConnectionSingle{
 		pipe: udwChan.MakeChanBytes(0),
 		buf:  udwBytes.NewBufWriter(nil),

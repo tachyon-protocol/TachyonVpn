@@ -26,6 +26,7 @@ type vpnClient struct {
 
 	locker       sync.Mutex
 	connToClient net.Conn
+	connRelay    net.Conn
 }
 
 type ServerRunReq struct {
@@ -56,6 +57,8 @@ func (s *server) Run(req ServerRunReq) {
 	udwErr.PanicIfError(err)
 	networkConfig()
 	fmt.Println("Server started ✔")
+
+	//read thread from TUN
 	go func() {
 		bufR := make([]byte, 3<<20)
 		bufW := udwBytes.NewBufWriter(nil)
@@ -90,14 +93,61 @@ func (s *server) Run(req ServerRunReq) {
 		}
 	}()
 
-	certs := []tls.Certificate{
-		*udwTlsSelfSignCertV2.GetTlsCertificate(),
-	}
+	var (
+		acceptPipe = make(chan net.Conn, 10<<10)
+	)
+	//read thread from vpn conn
+	go func() {
+		certs := []tls.Certificate{
+			*udwTlsSelfSignCertV2.GetTlsCertificate(),
+		}
+		for {
+			conn := <-acceptPipe
+			conn = tls.Server(conn, &tls.Config{
+				Certificates: certs,
+				NextProtos:   []string{"http/1.1"},
+			})
+			go func() {
+				bufR := make([]byte, 3<<20)
+				vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
+				vpnIpBufW := udwBytes.NewBufWriter(nil)
+				for {
+					out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
+					if err != nil {
+						_ = conn.Close()
+						return
+					}
+					err = vpnPacket.Decode(out)
+					if err != nil {
+						_ = conn.Close()
+						return
+					}
+					client := s.getClient(vpnPacket.ClientIdFrom, conn)
+					ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
+					if errMsg != "" {
+						_ = conn.Close()
+						return
+					}
+					vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), vpnIpBufW)
+					ipPacket.SetSrcIp__NoRecomputeCheckSum(vpnIp)
+					ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
+					ipPacket.RecomputeCheckSum()
+					_, err = tun.Write(ipPacket.SerializeToBuf())
+					if err != nil {
+						_ = conn.Close()
+						return
+					}
+				}
+			}()
+		}
+	}()
+
+	//two methods to accept new vpn conn
 	if req.UseRelay {
-		vpnConn, err := net.Dial("tcp", req.RelayServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
+		relayConn, err := net.Dial("tcp", req.RelayServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
 		udwErr.PanicIfError(err)
 		fmt.Println("Server connected to relay server[", req.RelayServerIp, "] ✔")
-		vpnConn = tls.Client(vpnConn, &tls.Config{
+		relayConn = tls.Client(relayConn, &tls.Config{
 			ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"http/1.1", "h2"},
@@ -106,12 +156,18 @@ func (s *server) Run(req ServerRunReq) {
 			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
 			buf := udwBytes.NewBufWriter(nil)
 			for {
-				err := udwBinary.ReadByteSliceWithUint32LenToBufW(vpnConn, buf)
+				err := udwBinary.ReadByteSliceWithUint32LenToBufW(relayConn, buf)
 				udwErr.PanicIfError(err)
 				err = vpnPacket.Decode(buf.GetBytes())
 				udwErr.PanicIfError(err)
 				if vpnPacket.Cmd == tachyonSimpleVpnProtocol.CmdForward {
 					if vpnPacket.ClientIdForwardTo == selfClientId {
+						client := s.getClient(vpnPacket.ClientIdFrom, nil)
+						acceptPipe <- client.connToClient
+						_, err := client.connRelay.Write(vpnPacket.Data)
+						if err != nil {
+							udwLog.Log("[dy11zv1eg6]", err)
+						}
 					} else {
 						fmt.Println("[vw9tm9rv2s] not forward to self")
 					}
@@ -127,45 +183,7 @@ func (s *server) Run(req ServerRunReq) {
 			for {
 				conn, err := ln.Accept()
 				udwErr.PanicIfError(err)
-				if tachyonSimpleVpnProtocol.Debug {
-					udwLog.Log("New Conn", conn.RemoteAddr())
-				}
-				conn = tls.Server(conn, &tls.Config{
-					Certificates: certs,
-					NextProtos:   []string{"http/1.1"},
-				})
-				go func() {
-					bufR := make([]byte, 3<<20)
-					vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
-					vpnIpBufW := udwBytes.NewBufWriter(nil)
-					for {
-						out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
-						if err != nil {
-							_ = conn.Close()
-							return
-						}
-						err = vpnPacket.Decode(out)
-						if err != nil {
-							_ = conn.Close()
-							return
-						}
-						client := s.getClient(vpnPacket.ClientIdFrom, conn)
-						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
-						if errMsg != "" {
-							_ = conn.Close()
-							return
-						}
-						vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), vpnIpBufW)
-						ipPacket.SetSrcIp__NoRecomputeCheckSum(vpnIp)
-						ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
-						ipPacket.RecomputeCheckSum()
-						_, err = tun.Write(ipPacket.SerializeToBuf())
-						if err != nil {
-							_ = conn.Close()
-							return
-						}
-					}
-				}()
+				acceptPipe <- conn
 			}
 		}()
 	}
