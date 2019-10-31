@@ -43,9 +43,8 @@ type server struct {
 }
 
 func (s *server) Run(req ServerRunReq) {
-	s.clientId = tachyonSimpleVpnProtocol.GetClientId()
+	s.clientId = tachyonSimpleVpnProtocol.GetClientId() //TODO fixed clientId
 	fmt.Println("ClientId:", s.clientId)
-
 	tun, err := udwTapTun.NewTun("")
 	udwErr.PanicIfError(err)
 	err = udwTapTun.SetP2PIpAndUp(udwTapTun.SetP2PIpRequest{

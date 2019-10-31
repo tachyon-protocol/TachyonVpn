@@ -1,9 +1,12 @@
 package tachyonVpnClient
 
 import (
+	"github.com/tachyon-protocol/udw/udwBinary"
+	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwCmd"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwFile"
+	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwSys"
 	"net"
 	"strings"
@@ -39,15 +42,23 @@ func (s *server) getClient(clientId uint64, connToClient net.Conn, relayConn net
 		client.connRelaySide = cipher
 		go func() {
 			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
-				Cmd               : tachyonSimpleVpnProtocol.CmdData,
-				ClientIdFrom      :
-				ClientIdForwardTo uint64
-				Data              []byte
+				Cmd               : tachyonSimpleVpnProtocol.CmdForward,
+				ClientIdFrom      : s.clientId,
+				ClientIdForwardTo : clientId,
 			}
 			buf := make([]byte, 3 << 10)
+			bufW := udwBytes.NewBufWriter(nil)
 			for {
 				n, err := client.connRelaySide.Read(buf)
 				udwErr.PanicIfError(err)
+				vpnPacket.Data = buf[:n]
+				bufW.Reset()
+				vpnPacket.Encode(bufW)
+				err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(relayConn, bufW.GetBytes())
+				if err != nil {
+					udwLog.Log("[ar1nr4wf3s]", err)
+					return
+				}
 			}
 		}()
 	} else {
