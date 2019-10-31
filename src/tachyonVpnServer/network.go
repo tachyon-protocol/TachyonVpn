@@ -16,41 +16,41 @@ var (
 
 const maxCountVpnIp = 1 << 16
 
-func getClient(clientId uint64, conn net.Conn) *vpnClient {
-	gLocker.Lock()
-	if gClientMap == nil {
-		gClientMap = map[uint64]*vpnClient{}
+func (s *server) getClient(clientId uint64, conn net.Conn) *vpnClient {
+	s.locker.Lock()
+	if s.clientMap == nil {
+		s.clientMap = map[uint64]*vpnClient{}
 	}
-	client := gClientMap[clientId]
+	client := s.clientMap[clientId]
 	if client != nil {
-		gLocker.Unlock()
+		s.locker.Unlock()
 		return client
 	}
 	client = &vpnClient{
-		id:          clientId,
-		conn:        conn,
-		locker:      sync.Mutex{},
-		vpnIpOffset: 0,
+		id:           clientId,
+		connToClient: conn,
+		locker:       sync.Mutex{},
+		vpnIpOffset:  0,
 	}
-	lastIpOffset := gNextVpnIpIndex
+	lastIpOffset := s.nextVpnIpIndex
 	for {
-		gNextVpnIpIndex = (gNextVpnIpIndex + 1) % maxCountVpnIp
-		if lastIpOffset == gNextVpnIpIndex {
-			gLocker.Unlock()
+		s.nextVpnIpIndex = (s.nextVpnIpIndex + 1) % maxCountVpnIp
+		if lastIpOffset == s.nextVpnIpIndex {
+			s.locker.Unlock()
 			panic("ip pool is full")
 		}
-		if gNextVpnIpIndex == 0 || gNextVpnIpIndex == 1 || gNextVpnIpIndex == 2 {
+		if s.nextVpnIpIndex == 0 || s.nextVpnIpIndex == 1 || s.nextVpnIpIndex == 2 {
 			// 172.21.0.0 ,172.21.0.1, 172.21.0.2 will not allocate to client
 			continue
 		}
-		if gVpnIpList[gNextVpnIpIndex] == nil {
-			client.vpnIpOffset = gNextVpnIpIndex
-			gVpnIpList[gNextVpnIpIndex] = client
+		if s.vpnIpList[s.nextVpnIpIndex] == nil {
+			client.vpnIpOffset = s.nextVpnIpIndex
+			s.vpnIpList[s.nextVpnIpIndex] = client
 			break
 		}
 	}
-	gClientMap[client.id] = client
-	gLocker.Unlock()
+	s.clientMap[client.id] = client
+	s.locker.Unlock()
 	return client
 }
 
@@ -72,15 +72,15 @@ func getVpnIpOffset(ip1 net.IP, ip2 net.IP) int {
 	return out
 }
 
-func getClientByVpnIp(vpnIp net.IP) *vpnClient {
+func (s *server)getClientByVpnIp(vpnIp net.IP) *vpnClient {
 	offset := getVpnIpOffset(vpnIp, READONLY_vpnIpStart)
 	if offset < 0 || offset >= maxCountVpnIp {
 		return nil
 	}
 	offset = offset % 65536
-	gLocker.Lock()
-	client := gVpnIpList[offset]
-	gLocker.Unlock()
+	s.locker.Lock()
+	client := s.vpnIpList[offset]
+	s.locker.Unlock()
 	if client == nil {
 		return nil
 	}

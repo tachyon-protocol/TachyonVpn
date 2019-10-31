@@ -24,25 +24,25 @@ type vpnClient struct {
 	vpnIpOffset int
 	vpnIp       net.IP
 
-	locker sync.Mutex
-	conn   net.Conn
+	locker       sync.Mutex
+	connToClient net.Conn
 }
-
-var (
-	gLocker         sync.Mutex
-	gClientMap      map[uint64]*vpnClient
-	gVpnIpList      [maxCountVpnIp]*vpnClient
-	gNextVpnIpIndex int
-)
 
 type ServerRunReq struct {
 	UseRelay      bool
 	RelayServerIp string
 }
 
-func ServerRun(req ServerRunReq) {
-	clientId := tachyonSimpleVpnProtocol.GetClientId()
-	fmt.Println("ClientId:", clientId)
+type server struct {
+	locker         sync.Mutex
+	clientMap      map[uint64]*vpnClient
+	vpnIpList      [maxCountVpnIp]*vpnClient
+	nextVpnIpIndex int
+}
+
+func (s *server) Run(req ServerRunReq) {
+	selfClientId := tachyonSimpleVpnProtocol.GetClientId()
+	fmt.Println("ClientId:", selfClientId)
 
 	tun, err := udwTapTun.NewTun("")
 	udwErr.PanicIfError(err)
@@ -70,14 +70,14 @@ func ServerRun(req ServerRunReq) {
 				return
 			}
 			ip := ipPacket.GetDstIp()
-			client := getClientByVpnIp(ip)
+			client := s.getClientByVpnIp(ip)
 			if client == nil {
 				//noinspection SpellCheckingInspection
 				udwLog.Log("[rdtp9rk84m] TUN Read no such client")
 				continue
 			}
 			responseVpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
-				ClientIdFrom: clientId,
+				ClientIdFrom: selfClientId,
 				Cmd:          tachyonSimpleVpnProtocol.CmdData,
 			}
 			ipPacket.SetDstIp__NoRecomputeCheckSum(READONLY_vpnIpClient)
@@ -86,7 +86,7 @@ func ServerRun(req ServerRunReq) {
 			responseVpnPacket.Data = ipPacket.SerializeToBuf()
 			bufW.Reset()
 			responseVpnPacket.Encode(bufW)
-			_ = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(client.conn, bufW.GetBytes()) //TODO
+			_ = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(client.connToClient, bufW.GetBytes()) //TODO
 		}
 	}()
 
@@ -108,16 +108,15 @@ func ServerRun(req ServerRunReq) {
 			for {
 				err := udwBinary.ReadByteSliceWithUint32LenToBufW(vpnConn, buf)
 				udwErr.PanicIfError(err)
-				err  = vpnPacket.Decode(buf.GetBytes())
+				err = vpnPacket.Decode(buf.GetBytes())
 				udwErr.PanicIfError(err)
 				if vpnPacket.Cmd == tachyonSimpleVpnProtocol.CmdForward {
-					if vpnPacket.ClientIdForwardTo == clientId {
-
+					if vpnPacket.ClientIdForwardTo == selfClientId {
 					} else {
 						fmt.Println("[vw9tm9rv2s] not forward to self")
 					}
 				} else {
-					fmt.Println("[d39e7d859m]Unexpected Cmd[",vpnPacket.Cmd,"]")
+					fmt.Println("[d39e7d859m]Unexpected Cmd[", vpnPacket.Cmd, "]")
 				}
 			}
 		}()
@@ -150,7 +149,7 @@ func ServerRun(req ServerRunReq) {
 							_ = conn.Close()
 							return
 						}
-						client := getClient(vpnPacket.ClientIdFrom, conn)
+						client := s.getClient(vpnPacket.ClientIdFrom, conn)
 						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 						if errMsg != "" {
 							_ = conn.Close()

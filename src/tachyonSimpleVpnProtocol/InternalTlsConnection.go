@@ -19,9 +19,9 @@ func NewInternalConnectionDual() (cipherConn net.Conn, plainConn net.Conn) {
 		buf:  udwBytes.NewBufWriter(nil),
 	}
 	return &internalConnectionPeer{
-		readConn:  right,
-		writeConn: left,
-	}, &internalConnectionPeer{
+			readConn:  right,
+			writeConn: left,
+		}, &internalConnectionPeer{
 			readConn:  left,
 			writeConn: right,
 		}
@@ -93,7 +93,10 @@ func (conn *internalConnectionSingle) Read(buf []byte) (n int, err error) {
 }
 
 func (conn *internalConnectionSingle) Write(buf []byte) (n int, err error) {
-	conn.pipe.Send(buf)
+	isClose := conn.pipe.Send(buf)
+	if isClose {
+		return 0, io.ErrClosedPipe
+	}
 	return len(buf), nil
 }
 
