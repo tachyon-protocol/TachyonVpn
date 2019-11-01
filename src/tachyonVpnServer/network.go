@@ -1,4 +1,4 @@
-package tachyonVpnClient
+package tachyonVpnServer
 
 import (
 	"errors"

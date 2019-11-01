@@ -1,4 +1,4 @@
-package tachyonVpnClient
+package tachyonVpnServer
 
 import (
 	"github.com/tachyon-protocol/udw/udwBinary"
