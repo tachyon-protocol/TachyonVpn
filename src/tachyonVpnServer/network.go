@@ -17,7 +17,7 @@ var (
 
 const maxCountVpnIp = 1 << 16
 
-func (s *server) clientAllocateVpnIp_NoLock(client *vpnClient) error {
+func (s *Server) clientAllocateVpnIp_NoLock(client *vpnClient) error {
 	lastIpOffset := s.nextVpnIpIndex
 	for {
 		s.nextVpnIpIndex = (s.nextVpnIpIndex + 1) % maxCountVpnIp
@@ -54,7 +54,7 @@ func getVpnIpOffset(ip1 net.IP, ip2 net.IP) int {
 	return out
 }
 
-func (s *server) getClientByVpnIp(vpnIp net.IP) *vpnClient {
+func (s *Server) getClientByVpnIp(vpnIp net.IP) *vpnClient {
 	offset := getVpnIpOffset(vpnIp, READONLY_vpnIpStart)
 	if offset < 0 || offset >= maxCountVpnIp {
 		return nil

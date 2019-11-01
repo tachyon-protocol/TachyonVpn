@@ -8,7 +8,7 @@ import (
 	"tachyonVpnProtocol"
 )
 
-func (s *server) getClient(clientId uint64) *vpnClient {
+func (s *Server) getClient(clientId uint64) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
@@ -18,7 +18,7 @@ func (s *server) getClient(clientId uint64) *vpnClient {
 	return client
 }
 
-func (s *server) getOrNewClientFromDirectConn(clientId uint64, connToClient net.Conn) *vpnClient {
+func (s *Server) getOrNewClientFromDirectConn(clientId uint64, connToClient net.Conn) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
@@ -41,7 +41,7 @@ func (s *server) getOrNewClientFromDirectConn(clientId uint64, connToClient net.
 	return client
 }
 
-func (s *server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn, acceptPipe <-chan net.Conn) *vpnClient {
+func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn, acceptPipe <-chan net.Conn) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}

@@ -15,7 +15,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"tachyonSimpleVpnProtocol"
+	"tachyonVpnProtocol"
 )
 
 type ClientRunReq struct {

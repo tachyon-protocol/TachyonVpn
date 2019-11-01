@@ -34,15 +34,15 @@ type ServerRunReq struct {
 	RelayServerIp string
 }
 
-type server struct {
-	clientId uint64
+type Server struct {
+	clientId       uint64
 	locker         sync.Mutex
 	clientMap      map[uint64]*vpnClient
 	vpnIpList      [maxCountVpnIp]*vpnClient
 	nextVpnIpIndex int
 }
 
-func (s *server) Run(req ServerRunReq) {
+func (s *Server) Run(req ServerRunReq) {
 	s.clientId = tachyonVpnProtocol.GetClientId() //TODO fixed clientId
 	fmt.Println("ClientId:", s.clientId)
 	tun, err := udwTapTun.NewTun("")
@@ -171,11 +171,23 @@ func (s *server) Run(req ServerRunReq) {
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"http/1.1", "h2"},
 		})
-		//TODO handshake with Relay Server
+		var (
+			vpnPacket = &tachyonVpnProtocol.VpnPacket{
+				Cmd:            tachyonVpnProtocol.CmdHandshake,
+				ClientIdSender: s.clientId,
+			}
+			buf = udwBytes.NewBufWriter(nil)
+		)
+		vpnPacket.Encode(buf)
+		err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(relayConn, buf.GetBytes())
+		if err != nil {
+			panic("[tcp3kt1mqs] " + err.Error())
+		}
+		//TODO wait for response from Relay Server
+		vpnPacket.Reset()
 		go func() {
-			vpnPacket := &tachyonVpnProtocol.VpnPacket{}
-			buf := udwBytes.NewBufWriter(nil)
 			for {
+				buf.Reset()
 				err := udwBinary.ReadByteSliceWithUint32LenToBufW(relayConn, buf)
 				udwErr.PanicIfError(err)
 				err = vpnPacket.Decode(buf.GetBytes())
@@ -194,7 +206,7 @@ func (s *server) Run(req ServerRunReq) {
 						fmt.Println("[vw9tm9rv2s] not forward to self")
 					}
 				} else {
-					fmt.Println("[d39e7d859m]Unexpected Cmd[", vpnPacket.Cmd, "]")
+					fmt.Println("[d39e7d859m] Unexpected Cmd[", vpnPacket.Cmd, "]")
 				}
 			}
 		}()
