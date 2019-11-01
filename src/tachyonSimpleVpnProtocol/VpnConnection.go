@@ -72,10 +72,10 @@ func (conn *VpnConnection) Write(buf []byte) (n int, err error) {
 	if conn.vpnPacket == nil {
 		conn.vpnPacket = &VpnPacket{}
 	}
-	conn.vpnPacket.ClientIdFrom = conn.req.ClientIdFrom
+	conn.vpnPacket.ClientIdSender = conn.req.ClientIdFrom
 	conn.vpnPacket.Cmd = CmdData
 	if conn.req.IsRelay {
-		conn.vpnPacket.ClientIdForwardTo = conn.req.ClientIdForwardTo
+		conn.vpnPacket.ClientIdReceiver = conn.req.ClientIdForwardTo
 		conn.vpnPacket.Cmd = CmdForward
 	}
 	n = copy(conn.vpnPacket.Data, buf)

@@ -10,12 +10,8 @@ func (packet *VpnPacket) Decode(buf []byte) error {
 		return errors.New("len(buf) < 1")
 	}
 	packet.Cmd = buf[0]
-	switch packet.Cmd {
-	case CmdData:
-		packet.ClientIdFrom = binary.BigEndian.Uint64(buf[1:])
-	case CmdForward:
-		packet.ClientIdForwardTo = binary.BigEndian.Uint64(buf[1:])
-	}
-	packet.Data = buf[9:]
+	packet.ClientIdSender = binary.BigEndian.Uint64(buf[1:9])
+	packet.ClientIdReceiver = binary.BigEndian.Uint64(buf[9:17])
+	packet.Data = buf[17:]
 	return nil
 }

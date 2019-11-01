@@ -3,7 +3,6 @@ package tachyonVpnClient
 import (
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
-	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"net"
 	"tachyonSimpleVpnProtocol"
@@ -66,15 +65,19 @@ func (s *server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	}
 	go func() {
 		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
-			Cmd:               tachyonSimpleVpnProtocol.CmdForward,
-			ClientIdFrom:      s.clientId,
-			ClientIdForwardTo: clientId,
+			Cmd:              tachyonSimpleVpnProtocol.CmdForward,
+			ClientIdSender:   s.clientId,
+			ClientIdReceiver: clientId,
 		}
 		buf := make([]byte, 3<<10)
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := client.connRelaySide.Read(buf)
-			udwErr.PanicIfError(err)
+			if err != nil {
+				udwLog.Log("[cz2xvv1smx] close conn", err)
+				_ = client.connRelaySide.Close()
+				return
+			}
 			vpnPacket.Data = buf[:n]
 			bufW.Reset()
 			vpnPacket.Encode(bufW)

@@ -81,8 +81,8 @@ func (s *server) Run(req ServerRunReq) {
 				continue
 			}
 			responseVpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
-				ClientIdFrom: s.clientId,
-				Cmd:          tachyonSimpleVpnProtocol.CmdData,
+				ClientIdSender: s.clientId,
+				Cmd:            tachyonSimpleVpnProtocol.CmdData,
 			}
 			ipPacket.SetDstIp__NoRecomputeCheckSum(READONLY_vpnIpClient)
 			ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
@@ -126,8 +126,9 @@ func (s *server) Run(req ServerRunReq) {
 						return
 					}
 					switch vpnPacket.Cmd {
+					case tachyonSimpleVpnProtocol.CmdHandshake:
 					case tachyonSimpleVpnProtocol.CmdData:
-						client := s.getOrNewClientFromDirectConn(vpnPacket.ClientIdFrom, connToClient)
+						client := s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
 						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 						if errMsg != "" {
 							_ = connToClient.Close()
@@ -144,7 +145,7 @@ func (s *server) Run(req ServerRunReq) {
 							return
 						}
 					case tachyonSimpleVpnProtocol.CmdForward:
-						nextPeer := s.getClient(vpnPacket.ClientIdForwardTo)
+						nextPeer := s.getClient(vpnPacket.ClientIdReceiver)
 						if nextPeer == nil {
 							fmt.Println("[4tz1d2932g] forward failed nextPeer == nil")
 							continue
@@ -180,11 +181,11 @@ func (s *server) Run(req ServerRunReq) {
 				err = vpnPacket.Decode(buf.GetBytes())
 				udwErr.PanicIfError(err)
 				if vpnPacket.Cmd == tachyonSimpleVpnProtocol.CmdForward {
-					if vpnPacket.ClientIdForwardTo == s.clientId {
+					if vpnPacket.ClientIdReceiver == s.clientId {
 						//TODO Server will use vpnPacket.ClientIdFrom to identify different TLS connections
 						//TODO vpnPacket.ClientIdFrom should not be real Client's Id
 						//TODO Relay Server could replace real Client's Id with fake one
-						client := s.getOrNewClientFromRelayConn(vpnPacket.ClientIdFrom, relayConn, acceptPipe)
+						client := s.getOrNewClientFromRelayConn(vpnPacket.ClientIdSender, relayConn, acceptPipe)
 						_, err := client.connRelaySide.Write(vpnPacket.Data)
 						if err != nil {
 							udwLog.Log("[dy11zv1eg6]", err)
