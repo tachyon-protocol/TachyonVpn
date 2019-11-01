@@ -64,19 +64,20 @@ func (s *server) Run(req ServerRunReq) {
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := tun.Read(bufR)
-			udwErr.PanicIfError(err)
+			if err != nil {
+				udwLog.Log("[m7j1pw1vr7] TUN Read failed", err)
+				continue
+			}
 			packetBuf := bufR[:n]
 			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(packetBuf)
 			if errMsg != "" {
-				//noinspection SpellCheckingInspection
-				udwLog.Log("[psmddnegwg] TUN Read parse IPv4 failed", errMsg)
-				return
+				udwLog.Log("[wj1nz633mg] TUN Read parse IPv4 failed", errMsg)
+				continue
 			}
 			ip := ipPacket.GetDstIp()
 			client := s.getClientByVpnIp(ip)
 			if client == nil {
-				//noinspection SpellCheckingInspection
-				udwLog.Log("[rdtp9rk84m] TUN Read no such client")
+				udwLog.Log("[r1tp9rk84m] TUN Read no such client")
 				continue
 			}
 			responseVpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
@@ -102,52 +103,56 @@ func (s *server) Run(req ServerRunReq) {
 			*udwTlsSelfSignCertV2.GetTlsCertificate(),
 		}
 		for {
-			conn := <-acceptPipe
-			conn = tls.Server(conn, &tls.Config{
+			connToClient := <-acceptPipe
+			connToClient = tls.Server(connToClient, &tls.Config{
 				Certificates: certs,
 				NextProtos:   []string{"http/1.1"},
 			})
 			go func() {
-				bufR := make([]byte, 3<<10)
 				vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
-				vpnIpBufW := udwBytes.NewBufWriter(nil)
+				bufW := udwBytes.NewBufWriter(nil)
 				for {
-					out, err := udwBinary.ReadByteSliceWithUint32LenNoAllocLimitMaxSize(conn, bufR, uint32(len(bufR)))
+					bufW.Reset()
+					err := udwBinary.ReadByteSliceWithUint32LenToBufW(connToClient, bufW)
 					if err != nil {
-						_ = conn.Close()
+						udwLog.Log("[tw1me5hux3] close conn", err)
+						_ = connToClient.Close()
 						return
 					}
-					err = vpnPacket.Decode(out)
+					err = vpnPacket.Decode(bufW.GetBytes())
 					if err != nil {
-						_ = conn.Close()
+						udwLog.Log("[m1ds6vv2n8] close conn", err)
+						_ = connToClient.Close()
 						return
 					}
-					client := s.getOrNewClient(vpnPacket.ClientIdFrom, conn, nil)
+					//client := s.getOrNewClient(vpnPacket.ClientIdFrom, connToClient, nil)
 					switch vpnPacket.Cmd {
 					case tachyonSimpleVpnProtocol.CmdData:
+						client := s.getClient(vpnPacket.ClientIdFrom)
 						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 						if errMsg != "" {
-							_ = conn.Close()
+							_ = connToClient.Close()
 							return
 						}
-						vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), vpnIpBufW)
+						vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), bufW)
 						ipPacket.SetSrcIp__NoRecomputeCheckSum(vpnIp)
 						ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
 						ipPacket.RecomputeCheckSum()
 						_, err = tun.Write(ipPacket.SerializeToBuf())
 						if err != nil {
-							_ = conn.Close()
+							udwLog.Log("[x8z73fm1x5] close conn", err)
+							_ = connToClient.Close()
 							return
 						}
 					case tachyonSimpleVpnProtocol.CmdForward:
 						nextPeer := s.getClient(vpnPacket.ClientIdForwardTo)
 						if nextPeer == nil {
-							fmt.Println("[4tz1d2932g] nextPeer == nil")
+							fmt.Println("[4tz1d2932g] forward failed nextPeer == nil")
 							continue
 						}
 						_, err := nextPeer.connToClient.Write(vpnPacket.Data) //TLS layer
 						if err != nil {
-							fmt.Println("[va1gz58zm3]", err)
+							fmt.Println("[va1gz58zm3] forward failed", err)
 							continue
 						}
 					}
@@ -166,6 +171,7 @@ func (s *server) Run(req ServerRunReq) {
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"http/1.1", "h2"},
 		})
+		//TODO handshake with Relay Server
 		go func() {
 			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{}
 			buf := udwBytes.NewBufWriter(nil)
@@ -176,8 +182,10 @@ func (s *server) Run(req ServerRunReq) {
 				udwErr.PanicIfError(err)
 				if vpnPacket.Cmd == tachyonSimpleVpnProtocol.CmdForward {
 					if vpnPacket.ClientIdForwardTo == s.clientId {
-						client := s.getOrNewClient(vpnPacket.ClientIdFrom, nil,relayConn)
-						acceptPipe <- client.connToClient
+						//TODO Server will use vpnPacket.ClientIdFrom to identify different TLS connections
+						//TODO vpnPacket.ClientIdFrom should not be real Client's Id
+						//TODO Relay Server could replace real Client's Id with fake one
+						client := s.getOrNewClientFromRelayConn(vpnPacket.ClientIdFrom, relayConn, acceptPipe)
 						_, err := client.connRelaySide.Write(vpnPacket.Data)
 						if err != nil {
 							udwLog.Log("[dy11zv1eg6]", err)
