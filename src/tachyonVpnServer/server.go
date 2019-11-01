@@ -16,7 +16,6 @@ import (
 	"net"
 	"strconv"
 	"sync"
-	"tachyonSimpleVpnProtocol"
 	"tachyonVpnProtocol"
 )
 

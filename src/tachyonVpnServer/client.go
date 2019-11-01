@@ -5,7 +5,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"net"
-	"tachyonSimpleVpnProtocol"
+	"tachyonVpnProtocol"
 )
 
 func (s *server) getClient(clientId uint64) *vpnClient {
