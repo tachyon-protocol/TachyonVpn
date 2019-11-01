@@ -1,4 +1,4 @@
-package tachyonSimpleVpnProtocol
+package tachyonVpnProtocol
 
 import (
 	"encoding/binary"

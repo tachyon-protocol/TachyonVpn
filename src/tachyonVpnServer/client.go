@@ -54,7 +54,7 @@ func (s *server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	client = &vpnClient{
 		id:           clientId,
 	}
-	cipher, plain := tachyonSimpleVpnProtocol.NewInternalConnectionDual()
+	cipher, plain := tachyonVpnProtocol.NewInternalConnectionDual()
 	client.connToClient = plain
 	client.connRelaySide = cipher
 	s.clientMap[client.id] = client
@@ -64,8 +64,8 @@ func (s *server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 		panic("[ub4fm53v26] " + err.Error())
 	}
 	go func() {
-		vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
-			Cmd:              tachyonSimpleVpnProtocol.CmdForward,
+		vpnPacket := &tachyonVpnProtocol.VpnPacket{
+			Cmd:              tachyonVpnProtocol.CmdForward,
 			ClientIdSender:   s.clientId,
 			ClientIdReceiver: clientId,
 		}

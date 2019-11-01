@@ -25,12 +25,12 @@ type ClientRunReq struct {
 }
 
 func ClientRun(req ClientRunReq) {
-	clientId := tachyonSimpleVpnProtocol.GetClientId()
+	clientId := tachyonVpnProtocol.GetClientId()
 	tun, err := clientCreateTun(req.ServerIp)
 	udwErr.PanicIfError(err)
-	vpnConn, err := net.Dial("tcp", req.ServerIp+":"+strconv.Itoa(tachyonSimpleVpnProtocol.VpnPort))
+	vpnConn, err := net.Dial("tcp", req.ServerIp+":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
 	udwErr.PanicIfError(err)
-	vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
+	vpnConn = tachyonVpnProtocol.VpnConnectionNew(tachyonVpnProtocol.VpnConnectionNewReq{
 		ClientIdFrom:      clientId,
 		ClientIdForwardTo: req.ExitClientId,
 		IsRelay:           req.IsRelay,
@@ -39,7 +39,7 @@ func ClientRun(req ClientRunReq) {
 	serverType := "EXIT"
 	if req.IsRelay {
 		serverType = "RELAY"
-		vpnConn = tachyonSimpleVpnProtocol.VpnConnectionNew(tachyonSimpleVpnProtocol.VpnConnectionNewReq{
+		vpnConn = tachyonVpnProtocol.VpnConnectionNew(tachyonVpnProtocol.VpnConnectionNewReq{
 			ClientIdFrom:      clientId,
 			ClientIdForwardTo: req.ExitClientId,
 			RawConn:           vpnConn,
@@ -83,7 +83,7 @@ func clientCreateTun(vpnServerIp string) (tun io.ReadWriteCloser, err error) {
 		DstIp:        vpnClientIp,
 		FirstIp:      vpnClientIp,
 		DhcpServerIp: vpnClientIp,
-		Mtu:          tachyonSimpleVpnProtocol.Mtu,
+		Mtu:          tachyonVpnProtocol.Mtu,
 		Mask:         net.CIDRMask(30, 32),
 	}
 	err = udwTapTun.CreateIpv4Tun(tunCreateCtx)
