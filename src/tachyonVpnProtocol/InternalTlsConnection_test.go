@@ -76,3 +76,50 @@ func TestNewInternalConnectionDual(t *testing.T) {
 		panic("test failed")
 	}
 }
+
+func TestNewInternalConnectionDualDoubleLayers(t *testing.T) {
+	client, server := NewInternalConnectionDual()
+	client = tls.Client(client, &tls.Config{
+		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"http/1.1", "h2"},
+	})
+	client = tls.Client(client, &tls.Config{
+		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"http/1.1", "h2"},
+	})
+	server = tls.Server(server, &tls.Config{
+		Certificates: []tls.Certificate{
+			*udwTlsSelfSignCertV2.GetTlsCertificate(),
+		},
+		NextProtos: []string{"http/1.1"},
+	})
+	server = tls.Server(server, &tls.Config{
+		Certificates: []tls.Certificate{
+			*udwTlsSelfSignCertV2.GetTlsCertificate(),
+		},
+		NextProtos: []string{"http/1.1"},
+	})
+	var inputStr = udwRand.MustCryptoRandToReadableAlpha(1<<10)
+	go func() {
+		_, err := client.Write([]byte(inputStr))
+		udwErr.PanicIfError(err)
+		fmt.Println("written ✔")
+	}()
+	buf := make([]byte, 1<<8)
+	var outputStr string
+	testPass := false
+	for i := 0; i < 100; i++ {
+		n, err := server.Read(buf)
+		udwErr.PanicIfError(err)
+		outputStr += string(buf[:n])
+		if outputStr == inputStr {
+			testPass = true
+			break
+		}
+	}
+	if !testPass {
+		panic("test failed")
+	}
+}

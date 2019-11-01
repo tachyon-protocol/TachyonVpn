@@ -33,11 +33,19 @@ type internalConnectionPeer struct {
 }
 
 func (conn *internalConnectionPeer) LocalAddr() net.Addr {
-	panic("implement me")
+	return &net.TCPAddr{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 1111,
+		Zone: "",
+	}
 }
 
 func (conn *internalConnectionPeer) RemoteAddr() net.Addr {
-	panic("implement me")
+	return &net.TCPAddr{
+		IP:   net.ParseIP("1.1.1.1"),
+		Port: 2222,
+		Zone: "",
+	}
 }
 
 func (conn *internalConnectionPeer) SetDeadline(t time.Time) error {

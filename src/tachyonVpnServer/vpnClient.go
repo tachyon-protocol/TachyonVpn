@@ -1,6 +1,7 @@
 package tachyonVpnServer
 
 import (
+	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwLog"
@@ -41,7 +42,7 @@ func (s *Server) getOrNewClientFromDirectConn(clientId uint64, connToClient net.
 	return client
 }
 
-func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn, acceptPipe <-chan net.Conn) *vpnClient {
+func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn, acceptPipe chan net.Conn) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
@@ -59,6 +60,7 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	client.connRelaySide = cipher
 	s.clientMap[client.id] = client
 	err := s.clientAllocateVpnIp_NoLock(client)
+	acceptPipe <- client.connToClient
 	s.locker.Unlock()
 	if err != nil {
 		panic("[ub4fm53v26] " + err.Error())
@@ -69,7 +71,7 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 			ClientIdSender:   s.clientId,
 			ClientIdReceiver: clientId,
 		}
-		buf := make([]byte, 3<<10)
+		buf := make([]byte, 10<<20)
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := client.connRelaySide.Read(buf)
@@ -77,6 +79,9 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 				udwLog.Log("[cz2xvv1smx] close conn", err)
 				_ = client.connRelaySide.Close()
 				return
+			}
+			if tachyonVpnProtocol.Debug {
+				fmt.Println("read from connRelaySide write to relayConn", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
 			}
 			vpnPacket.Data = buf[:n]
 			bufW.Reset()

@@ -11,7 +11,6 @@ import (
 	"github.com/tachyon-protocol/udw/udwIo"
 	"github.com/tachyon-protocol/udw/udwIpPacket"
 	"github.com/tachyon-protocol/udw/udwLog"
-	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwIPNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
 	"github.com/tachyon-protocol/udw/udwRand"
@@ -30,6 +29,7 @@ type ClientRunReq struct {
 
 func ClientRun(req ClientRunReq) {
 	clientId := tachyonVpnProtocol.GetClientId()
+	fmt.Println("ClientId:", clientId)
 	tun, err := clientCreateTun(req.ServerIp)
 	udwErr.PanicIfError(err)
 	vpnConn, err := net.Dial("tcp", req.ServerIp+":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
@@ -64,6 +64,9 @@ func ClientRun(req ClientRunReq) {
 				err = vpnPacket.Decode(buf.GetBytes())
 				udwErr.PanicIfError(err)
 				if vpnPacket.Cmd == tachyonVpnProtocol.CmdForward {
+					if tachyonVpnProtocol.Debug {
+						fmt.Println("read from relayConn", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
+					}
 					_, err := connRelaySide.Write(vpnPacket.Data)
 					if err != nil {
 						udwLog.Log("[8gys171bvm]", err)
@@ -79,7 +82,7 @@ func ClientRun(req ClientRunReq) {
 				ClientIdSender:   clientId,
 				ClientIdReceiver: req.ExitClientId,
 			}
-			buf := make([]byte, 3<<10)
+			buf := make([]byte, 10<<20)
 			bufW := udwBytes.NewBufWriter(nil)
 			for {
 				n, err := connRelaySide.Read(buf)
@@ -87,6 +90,9 @@ func ClientRun(req ClientRunReq) {
 					udwLog.Log("[e9erq1bwd1] close conn", err)
 					_ = connRelaySide.Close()
 					return
+				}
+				if tachyonVpnProtocol.Debug {
+					fmt.Println("write to relayConn", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
 				}
 				vpnPacket.Data = buf[:n]
 				bufW.Reset()
@@ -106,7 +112,7 @@ func ClientRun(req ClientRunReq) {
 			ClientIdSender   : clientId,
 			ClientIdReceiver : req.ExitClientId,
 		}
-		buf := make([]byte, 3<<10)
+		buf := make([]byte, 10<<20)
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := tun.Read(buf)
@@ -157,14 +163,14 @@ func clientCreateTun(vpnServerIp string) (tun io.ReadWriteCloser, err error) {
 		return nil, errors.New("[3xa38g7vtd] " + err.Error())
 	}
 	tunNamed := tunCreateCtx.ReturnTun
-	vpnGatewayIp := vpnClientIp
+	//vpnGatewayIp := vpnClientIp
 	err = udwErr.PanicToError(func() {
-		configLocalNetwork()
-		ctx := udwNet.NewRouteContext()
-		for _, ipNet := range includeIpNetSet.GetIpv4NetList() {
-			goIpNet := ipNet.ToGoIPNet()
-			ctx.MustRouteSet(*goIpNet, vpnGatewayIp)
-		}
+		//configLocalNetwork()
+		//ctx := udwNet.NewRouteContext()
+		//for _, ipNet := range includeIpNetSet.GetIpv4NetList() {
+		//	goIpNet := ipNet.ToGoIPNet()
+		//	ctx.MustRouteSet(*goIpNet, vpnGatewayIp)
+		//}
 	})
 	if err != nil {
 		_ = tunNamed.Close()
