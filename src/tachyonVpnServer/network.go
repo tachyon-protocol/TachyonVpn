@@ -21,7 +21,17 @@ var (
 
 const maxCountVpnIp = 1 << 16
 
-func (s *server) getClient(clientId uint64, connToClient net.Conn, relayConn net.Conn) *vpnClient {
+func (s *server) getClient(clientId uint64) *vpnClient {
+	s.locker.Lock()
+	if s.clientMap == nil {
+		s.clientMap = map[uint64]*vpnClient{}
+	}
+	client := s.clientMap[clientId]
+	s.locker.Unlock()
+	return client
+}
+
+func (s *server) getOrNewClient(clientId uint64, connToClient net.Conn, relayConn net.Conn) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
@@ -42,11 +52,11 @@ func (s *server) getClient(clientId uint64, connToClient net.Conn, relayConn net
 		client.connRelaySide = cipher
 		go func() {
 			vpnPacket := &tachyonSimpleVpnProtocol.VpnPacket{
-				Cmd               : tachyonSimpleVpnProtocol.CmdForward,
-				ClientIdFrom      : s.clientId,
-				ClientIdForwardTo : clientId,
+				Cmd:               tachyonSimpleVpnProtocol.CmdForward,
+				ClientIdFrom:      s.clientId,
+				ClientIdForwardTo: clientId,
 			}
-			buf := make([]byte, 3 << 10)
+			buf := make([]byte, 3<<10)
 			bufW := udwBytes.NewBufWriter(nil)
 			for {
 				n, err := client.connRelaySide.Read(buf)

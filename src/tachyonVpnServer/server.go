@@ -122,20 +122,34 @@ func (s *server) Run(req ServerRunReq) {
 						_ = conn.Close()
 						return
 					}
-					client := s.getClient(vpnPacket.ClientIdFrom, conn, nil)
-					ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
-					if errMsg != "" {
-						_ = conn.Close()
-						return
-					}
-					vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), vpnIpBufW)
-					ipPacket.SetSrcIp__NoRecomputeCheckSum(vpnIp)
-					ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
-					ipPacket.RecomputeCheckSum()
-					_, err = tun.Write(ipPacket.SerializeToBuf())
-					if err != nil {
-						_ = conn.Close()
-						return
+					client := s.getOrNewClient(vpnPacket.ClientIdFrom, conn, nil)
+					switch vpnPacket.Cmd {
+					case tachyonSimpleVpnProtocol.CmdData:
+						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
+						if errMsg != "" {
+							_ = conn.Close()
+							return
+						}
+						vpnIp := udwNet.Ipv4AddAndCopyWithBuffer(READONLY_vpnIpStart, uint32(client.vpnIpOffset), vpnIpBufW)
+						ipPacket.SetSrcIp__NoRecomputeCheckSum(vpnIp)
+						ipPacket.TcpFixMss__NoRecomputeCheckSum(tachyonSimpleVpnProtocol.Mss)
+						ipPacket.RecomputeCheckSum()
+						_, err = tun.Write(ipPacket.SerializeToBuf())
+						if err != nil {
+							_ = conn.Close()
+							return
+						}
+					case tachyonSimpleVpnProtocol.CmdForward:
+						nextPeer := s.getClient(vpnPacket.ClientIdForwardTo)
+						if nextPeer == nil {
+							fmt.Println("[4tz1d2932g] nextPeer == nil")
+							continue
+						}
+						_, err := nextPeer.connToClient.Write(vpnPacket.Data) //TLS layer
+						if err != nil {
+							fmt.Println("[va1gz58zm3]", err)
+							continue
+						}
 					}
 				}
 			}()
@@ -162,7 +176,7 @@ func (s *server) Run(req ServerRunReq) {
 				udwErr.PanicIfError(err)
 				if vpnPacket.Cmd == tachyonSimpleVpnProtocol.CmdForward {
 					if vpnPacket.ClientIdForwardTo == s.clientId {
-						client := s.getClient(vpnPacket.ClientIdFrom, nil,relayConn)
+						client := s.getOrNewClient(vpnPacket.ClientIdFrom, nil,relayConn)
 						acceptPipe <- client.connToClient
 						_, err := client.connRelaySide.Write(vpnPacket.Data)
 						if err != nil {
