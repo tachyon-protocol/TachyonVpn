@@ -125,10 +125,9 @@ func (s *server) Run(req ServerRunReq) {
 						_ = connToClient.Close()
 						return
 					}
-					//client := s.getOrNewClient(vpnPacket.ClientIdFrom, connToClient, nil)
 					switch vpnPacket.Cmd {
 					case tachyonSimpleVpnProtocol.CmdData:
-						client := s.getClient(vpnPacket.ClientIdFrom)
+						client := s.getOrNewClientFromDirectConn(vpnPacket.ClientIdFrom, connToClient)
 						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 						if errMsg != "" {
 							_ = connToClient.Close()
