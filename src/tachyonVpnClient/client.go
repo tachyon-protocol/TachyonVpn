@@ -101,27 +101,39 @@ func ClientRun(req ClientRunReq) {
 	}
 	fmt.Println("Connected to", serverType, "Server ✔")
 	go func() {
+		vpnPacket := &tachyonVpnProtocol.VpnPacket{
+			Cmd              : tachyonVpnProtocol.CmdData,
+			ClientIdSender   : clientId,
+			ClientIdReceiver : req.ExitClientId,
+		}
 		buf := make([]byte, 3<<10)
+		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := tun.Read(buf)
 			udwErr.PanicIfError(err)
-			_, err = vpnConn.Write(buf[:n])
+			vpnPacket.Data = buf[:n]
+			bufW.Reset()
+			vpnPacket.Encode(bufW)
+			_, err = vpnConn.Write(bufW.GetBytes())
 			udwErr.PanicIfError(err)
 		}
 	}()
 	go func() {
-		buf := make([]byte, 3<<10)
+		vpnPacket := &tachyonVpnProtocol.VpnPacket{}
+		buf := udwBytes.NewBufWriter(nil)
 		for {
-			n, err := vpnConn.Read(buf)
+			buf.Reset()
+			err := udwBinary.ReadByteSliceWithUint32LenToBufW(vpnConn, buf)
 			udwErr.PanicIfError(err)
-			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(buf[:n])
+			err = vpnPacket.Decode(buf.GetBytes())
+			udwErr.PanicIfError(err)
+			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(buf.GetBytes())
 			if errMsg != "" {
-				panic("parse IPv4 failed:" + errMsg)
+				panic("[zdy1mx9y3h]" + errMsg)
 			}
 			_, err = tun.Write(ipPacket.SerializeToBuf())
 			if err != nil {
-				//noinspection SpellCheckingInspection
-				udwLog.Log("[wmwa2fyr9e] TUN Write error", err)
+				udwLog.Log("[wmw12fyr9e] TUN Write error", err)
 			}
 		}
 	}()
