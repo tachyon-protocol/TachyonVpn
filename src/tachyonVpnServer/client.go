@@ -52,7 +52,7 @@ func (s *server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 		return client
 	}
 	client = &vpnClient{
-		id:           clientId,
+		id: clientId,
 	}
 	cipher, plain := tachyonVpnProtocol.NewInternalConnectionDual()
 	client.connToClient = plain
@@ -90,4 +90,3 @@ func (s *server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	}()
 	return client
 }
-
