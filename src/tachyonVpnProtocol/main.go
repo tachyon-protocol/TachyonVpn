@@ -2,7 +2,7 @@ package tachyonVpnProtocol
 
 import "github.com/tachyon-protocol/udw/udwRand"
 
-const Debug = true
+const Debug = false
 
 const (
 	overheadEncrypt      = 0

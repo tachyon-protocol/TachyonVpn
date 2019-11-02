@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"sync"
 	"tachyonVpnProtocol"
+	"tlsPacketDebugger"
 )
 
 type vpnClient struct {
@@ -103,22 +104,20 @@ func (s *Server) Run(req ServerRunReq) {
 	)
 	//read thread from vpn conn
 	go func() {
-		certs := []tls.Certificate{
-			*udwTlsSelfSignCertV2.GetTlsCertificate(),
-		}
 		for {
 			connToClient := <-acceptPipe
-			connToClient = tls.Server(connToClient, &tls.Config{
-				Certificates: certs,
-				NextProtos:   []string{"http/1.1"},
-			})
 			if tachyonVpnProtocol.Debug {
 				fmt.Println("<-acceptPipe", connToClient.RemoteAddr())
 			}
 			go func() {
 				vpnPacket := &tachyonVpnProtocol.VpnPacket{}
 				bufW := udwBytes.NewBufWriter(nil)
+				//_buf := make([]byte, 1<<10)
 				for {
+					//_, _err := connToClient.Read(_buf)
+					//udwErr.PanicIfError(_err)
+					//fmt.Println(">>> size",binary.BigEndian.Uint32(_buf[:4]))
+					//continue
 					bufW.Reset()
 					err := udwBinary.ReadByteSliceWithUint32LenToBufW(connToClient, bufW)
 					if err != nil {
@@ -145,6 +144,7 @@ func (s *Server) Run(req ServerRunReq) {
 						client := s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
 						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 						if errMsg != "" {
+							udwLog.Log("[txd5xn4ex7] close conn", errMsg, "ipPacket.IsIpv4:",ipPacket.IsIpv4(), "ipPacket.Ipv4HasMoreFragments:",ipPacket.Ipv4HasMoreFragments())
 							_ = connToClient.Close()
 							return
 						}
@@ -224,7 +224,9 @@ func (s *Server) Run(req ServerRunReq) {
 							fmt.Println("read from relayConn", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
 						}
 						client := s.getOrNewClientFromRelayConn(vpnPacket.ClientIdSender, relayConn, acceptPipe)
-
+						if tachyonVpnProtocol.Debug {
+							tlsPacketDebugger.Dump("---", vpnPacket.Data)
+						}
 						_, err := client.connRelaySide.Write(vpnPacket.Data) //TLS
 						if err != nil {
 							udwLog.Log("[dy11zv1eg6]", err)
@@ -244,6 +246,12 @@ func (s *Server) Run(req ServerRunReq) {
 			for {
 				conn, err := ln.Accept()
 				udwErr.PanicIfError(err)
+				conn = tls.Server(conn, &tls.Config{
+					Certificates: []tls.Certificate{ //TODO optimize allocate
+						*udwTlsSelfSignCertV2.GetTlsCertificate(),
+					},
+					NextProtos:   []string{"http/1.1"},
+				})
 				acceptPipe <- conn
 			}
 		}()

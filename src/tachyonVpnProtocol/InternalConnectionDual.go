@@ -134,14 +134,7 @@ func (conn *internalConnectionSingle) Write(buf []byte) (n int, err error) {
 	//}
 
 	if DebugInternalConnection {
-		records := tlsPacketDebugger.GetRecordList(buf)
-		fmt.Println(conn.debugName, "write", len(buf))
-		for _, r := range records {
-			fmt.Println("	", r.ContentType, r.Length)
-			for _, p := range r.ProtocolList {
-				fmt.Println("		", p.HandshakeType, p.Length)
-			}
-		}
+		tlsPacketDebugger.Dump(conn.debugName, buf)
 	}
 
 	//const bufSize = 100
@@ -162,7 +155,7 @@ func (conn *internalConnectionSingle) Write(buf []byte) (n int, err error) {
 	//}
 	//return len(buf), nil
 
-	//TODO
+	//TODO optimize memory allocate
 	_buf := make([]byte, len(buf))
 	copy(_buf, buf)
 	isClose := conn.pipe.Send(_buf)

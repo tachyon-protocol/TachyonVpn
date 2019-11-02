@@ -1,12 +1,15 @@
 package tachyonVpnServer
 
 import (
+	"crypto/tls"
 	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwLog"
+	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
 	"net"
 	"tachyonVpnProtocol"
+	"tlsPacketDebugger"
 )
 
 func (s *Server) getClient(clientId uint64) *vpnClient {
@@ -55,9 +58,15 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	client = &vpnClient{
 		id: clientId,
 	}
-	cipher, plain := tachyonVpnProtocol.NewInternalConnectionDual()
-	client.connToClient = plain
-	client.connRelaySide = cipher
+	left, right := tachyonVpnProtocol.NewInternalConnectionDual()
+	right = tls.Server(right, &tls.Config{
+		Certificates: []tls.Certificate{ //TODO optimize allocate
+			*udwTlsSelfSignCertV2.GetTlsCertificate(),
+		},
+		NextProtos:   []string{"http/1.1"},
+	})
+	client.connToClient = right
+	client.connRelaySide = left
 	s.clientMap[client.id] = client
 	err := s.clientAllocateVpnIp_NoLock(client)
 	acceptPipe <- client.connToClient
@@ -82,6 +91,9 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 			}
 			if tachyonVpnProtocol.Debug {
 				fmt.Println("read from connRelaySide write to relayConn", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
+				if tachyonVpnProtocol.Debug {
+					tlsPacketDebugger.Dump("---", buf[:n])
+				}
 			}
 			vpnPacket.Data = buf[:n]
 			bufW.Reset()

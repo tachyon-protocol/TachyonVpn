@@ -3,6 +3,7 @@ package tlsPacketDebugger
 import (
 	"encoding/binary"
 	"encoding/hex"
+	"fmt"
 )
 
 type record struct {
@@ -14,6 +15,17 @@ type record struct {
 type handshakeProtocol struct {
 	HandshakeType string
 	Length        int
+}
+
+func Dump(logPrefix string, packet []byte) {
+	records := GetRecordList(packet)
+	fmt.Println(logPrefix, "write", len(packet))
+	for _, r := range records {
+		fmt.Println("	", r.ContentType, r.Length)
+		for _, p := range r.ProtocolList {
+			fmt.Println("		", p.HandshakeType, p.Length)
+		}
+	}
 }
 
 func GetRecordList(packet []byte) (list []record) {
@@ -61,7 +73,7 @@ func GetRecordList(packet []byte) (list []record) {
 				}
 				r.ProtocolList = append(r.ProtocolList, p)
 				j = j + 4 + p.Length
-				if j == i+ r.Length+5 {
+				if j == i+r.Length+5 {
 					break
 				}
 			}
