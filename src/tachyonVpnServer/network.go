@@ -1,6 +1,7 @@
-package tachyonVpnClient
+package tachyonVpnServer
 
 import (
+	"errors"
 	"github.com/tachyon-protocol/udw/udwCmd"
 	"github.com/tachyon-protocol/udw/udwFile"
 	"github.com/tachyon-protocol/udw/udwSys"
@@ -16,42 +17,23 @@ var (
 
 const maxCountVpnIp = 1 << 16
 
-func getClient(clientId uint64, conn net.Conn) *vpnClient {
-	gLocker.Lock()
-	if gClientMap == nil {
-		gClientMap = map[uint64]*vpnClient{}
-	}
-	client := gClientMap[clientId]
-	if client != nil {
-		gLocker.Unlock()
-		return client
-	}
-	client = &vpnClient{
-		id:          clientId,
-		conn:        conn,
-		locker:      sync.Mutex{},
-		vpnIpOffset: 0,
-	}
-	lastIpOffset := gNextVpnIpIndex
+func (s *Server) clientAllocateVpnIp_NoLock(client *vpnClient) error {
+	lastIpOffset := s.nextVpnIpIndex
 	for {
-		gNextVpnIpIndex = (gNextVpnIpIndex + 1) % maxCountVpnIp
-		if lastIpOffset == gNextVpnIpIndex {
-			gLocker.Unlock()
-			panic("ip pool is full")
+		s.nextVpnIpIndex = (s.nextVpnIpIndex + 1) % maxCountVpnIp
+		if lastIpOffset == s.nextVpnIpIndex {
+			return errors.New("[993yzr1tbz] ip pool is full")
 		}
-		if gNextVpnIpIndex == 0 || gNextVpnIpIndex == 1 || gNextVpnIpIndex == 2 {
+		if s.nextVpnIpIndex == 0 || s.nextVpnIpIndex == 1 || s.nextVpnIpIndex == 2 {
 			// 172.21.0.0 ,172.21.0.1, 172.21.0.2 will not allocate to client
 			continue
 		}
-		if gVpnIpList[gNextVpnIpIndex] == nil {
-			client.vpnIpOffset = gNextVpnIpIndex
-			gVpnIpList[gNextVpnIpIndex] = client
-			break
+		if s.vpnIpList[s.nextVpnIpIndex] == nil {
+			client.vpnIpOffset = s.nextVpnIpIndex
+			s.vpnIpList[s.nextVpnIpIndex] = client
+			return nil
 		}
 	}
-	gClientMap[client.id] = client
-	gLocker.Unlock()
-	return client
 }
 
 func getVpnIpOffset(ip1 net.IP, ip2 net.IP) int {
@@ -72,15 +54,15 @@ func getVpnIpOffset(ip1 net.IP, ip2 net.IP) int {
 	return out
 }
 
-func getClientByVpnIp(vpnIp net.IP) *vpnClient {
+func (s *Server) getClientByVpnIp(vpnIp net.IP) *vpnClient {
 	offset := getVpnIpOffset(vpnIp, READONLY_vpnIpStart)
 	if offset < 0 || offset >= maxCountVpnIp {
 		return nil
 	}
 	offset = offset % 65536
-	gLocker.Lock()
-	client := gVpnIpList[offset]
-	gLocker.Unlock()
+	s.locker.Lock()
+	client := s.vpnIpList[offset]
+	s.locker.Unlock()
 	if client == nil {
 		return nil
 	}
@@ -116,12 +98,12 @@ func networkConfig() {
 	})
 }
 
-func mustIptablesRestoreExist(){
+func mustIptablesRestoreExist() {
 	const cmd = "iptables-restore"
-	if udwCmd.Exist(cmd)==false{
+	if udwCmd.Exist(cmd) == false {
 		udwCmd.MustRun("apt install -y iptables")
 	}
-	if udwCmd.Exist(cmd)==false {
+	if udwCmd.Exist(cmd) == false {
 		panic("7fgwy8n93j")
 	}
 }
