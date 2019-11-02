@@ -1,29 +1,33 @@
 package tachyonVpnProtocol
 
 import (
+	"fmt"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwChan"
 	"io"
 	"net"
 	"sync"
 	"time"
+	"tlsPacketDebugger"
 )
 
-func NewInternalConnectionDual() (a net.Conn, b net.Conn) {
-	left := &internalConnectionSingle{
-		pipe: udwChan.MakeChanBytes(0),
-		buf:  udwBytes.NewBufWriter(nil),
+const DebugInternalConnection = false
+
+func NewInternalConnectionDual() (rBwA net.Conn, rAwB net.Conn) {
+	a := &internalConnectionSingle{
+		pipe:      udwChan.MakeChanBytes(1 << 10),
+		debugName: "A",
 	}
-	right := &internalConnectionSingle{
-		pipe: udwChan.MakeChanBytes(0),
-		buf:  udwBytes.NewBufWriter(nil),
+	b := &internalConnectionSingle{
+		pipe:      udwChan.MakeChanBytes(1 << 10),
+		debugName: "B",
 	}
 	return &internalConnectionPeer{
-			readConn:  right,
-			writeConn: left,
+			readConn:  b,
+			writeConn: a,
 		}, &internalConnectionPeer{
-			readConn:  left,
-			writeConn: right,
+			readConn:  a,
+			writeConn: b,
 		}
 }
 
@@ -75,33 +79,93 @@ func (conn *internalConnectionPeer) Close() (err error) {
 }
 
 type internalConnectionSingle struct {
+	debugName string
 	pipe      *udwChan.ChanBytes
-	locker    sync.Mutex
-	buf       *udwBytes.BufWriter
+	lockerR   sync.Mutex
+	bufR      *udwBytes.BufWriter
 	readIndex int
 }
 
 func (conn *internalConnectionSingle) Read(buf []byte) (n int, err error) {
-	conn.locker.Lock()
-	if conn.readIndex == conn.buf.GetLen() {
-		conn.buf.Reset()
+	conn.lockerR.Lock()
+	if conn.bufR == nil {
+		conn.bufR = udwBytes.NewBufWriter(nil)
+	}
+	if conn.readIndex == conn.bufR.GetLen() {
+		conn.bufR.Reset()
 		data, isClose := conn.pipe.Receive()
 		if isClose {
-			conn.locker.Unlock()
+			conn.lockerR.Unlock()
 			return 0, io.ErrClosedPipe
 		}
-		conn.buf.Write_(data)
+		if DebugInternalConnection {
+			fmt.Println(conn.debugName, "receive", len(data))
+		}
+		conn.bufR.Write_(data)
 		conn.readIndex = 0
 	}
-	_buf := conn.buf.GetBytes()
+	_buf := conn.bufR.GetBytes()
 	n = copy(buf, _buf[conn.readIndex:])
+	if DebugInternalConnection {
+		fmt.Println(conn.debugName, "read", n)
+	}
 	conn.readIndex += n
-	conn.locker.Unlock()
+	conn.lockerR.Unlock()
 	return n, nil
 }
 
 func (conn *internalConnectionSingle) Write(buf []byte) (n int, err error) {
-	isClose := conn.pipe.Send(buf)
+	//const size = 8000
+	//start := 0
+	//for {
+	//	if start >= len(buf) {
+	//		return len(buf), nil
+	//	}
+	//	end := start + size
+	//	if len(buf) < end {
+	//		end = len(buf)
+	//	}
+	//	time.Sleep(time.Millisecond )
+	//	isClose := conn.pipe.Send(buf[start:end])
+	//	start += size
+	//	if isClose {
+	//		return 0, io.ErrClosedPipe
+	//	}
+	//}
+
+	if DebugInternalConnection {
+		records := tlsPacketDebugger.GetRecordList(buf)
+		fmt.Println(conn.debugName, "write", len(buf))
+		for _, r := range records {
+			fmt.Println("	", r.ContentType, r.Length)
+			for _, p := range r.ProtocolList {
+				fmt.Println("		", p.HandshakeType, p.Length)
+			}
+		}
+	}
+
+	//const bufSize = 100
+	//conn.lockerW.Lock()
+	//if conn.bufW == nil {
+	//	conn.bufW = udwBytes.NewBufWriter(nil)
+	//}
+	//conn.bufW.Write_(buf)
+	//if conn.bufW.GetLen() < bufSize {
+	//	conn.lockerW.Unlock()
+	//	return len(buf), nil
+	//}
+	//isClose := conn.pipe.Send(conn.bufW.GetBytes())
+	//conn.bufW.Reset()
+	//conn.lockerW.Unlock()
+	//if isClose {
+	//	return 0, io.ErrClosedPipe
+	//}
+	//return len(buf), nil
+
+	//TODO
+	_buf := make([]byte, len(buf))
+	copy(_buf, buf)
+	isClose := conn.pipe.Send(_buf)
 	if isClose {
 		return 0, io.ErrClosedPipe
 	}
