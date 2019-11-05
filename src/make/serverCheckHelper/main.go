@@ -26,7 +26,7 @@ CheckHelper2 [domain]
 	fmt.Println("start get token,please wait...")
 	domain:=os.Args[1]
 	thisUrl:="https://"+domain+"/?n=yr8mtzfwee.GetTakenFromNodeSelfIp"
-	b,ok:=getUrlContent(thisUrl)
+	b,ok:=getUrlContent(thisUrl,30*time.Second)
 	if !ok{
 		fmt.Println("can not get token from "+domain)
 		os.Exit(-1)
@@ -50,7 +50,10 @@ CheckHelper2 [domain]
 	}
 	gLocker :=sync.Mutex{}
 	gIsCloser:=false
+	wg:=sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
+		wg.Done()
 		err := http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			w.Write([]byte(token))
 		}))
@@ -66,6 +69,7 @@ CheckHelper2 [domain]
 			return
 		}
 	}()
+	wg.Wait()
 	time.Sleep(time.Millisecond)
 	for i := 0; ; i++ {
 		if i == 9 {
@@ -74,7 +78,7 @@ CheckHelper2 [domain]
 			os.Exit(-1)
 			return
 		}
-		resp,ok:=getUrlContent("http://127.0.0.1:443")
+		resp,ok:=getUrlContent("http://127.0.0.1:443",time.Second)
 		if ok==false{
 			time.Sleep(time.Second)
 			continue
@@ -86,7 +90,7 @@ CheckHelper2 [domain]
 		break
 	}
 	fmt.Println("start web server finish, ask remote to verify...")
-	resp,ok:=getUrlContent("https://"+domain+"/?n=yr8mtzfwee.VerifyTokenFromNodeSelfIp")
+	resp,ok:=getUrlContent("https://"+domain+"/?n=yr8mtzfwee.VerifyTokenFromNodeSelfIp",30*time.Second)
 	if !ok || bytes.Equal(resp,[]byte("success"))==false{
 		fmt.Println("verify token fail from "+domain)
 		os.Exit(-1)
@@ -108,9 +112,9 @@ func waitForExit() {
 	<-ch
 }
 
-func getUrlContent(url string) (b []byte,ok bool){
+func getUrlContent(url string,timeout time.Duration) (b []byte,ok bool){
 	client:=&http.Client{
-		Timeout: time.Second*30,
+		Timeout: timeout,
 	}
 	resp, err := client.Get(url)
 	if err != nil || resp.StatusCode != 200 || resp.Body==nil{
