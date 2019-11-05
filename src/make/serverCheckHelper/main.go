@@ -17,14 +17,31 @@ import (
 
 func main() {
 	if len(os.Args) <= 1 {
-		fmt.Println(`CheckHelper usage:
-CheckHelper [ServerId]
+		fmt.Println(`CheckHelper2 usage:
+CheckHelper2 [domain]
 `)
 		os.Exit(-1)
 		return
 	}
-	fmt.Println("CheckHelper start server, try to listen to 443 port.")
-	serverId := strings.TrimSpace(os.Args[1])
+	fmt.Println("start get token,please wait...")
+	domain:=os.Args[1]
+	thisUrl:="https://"+domain+"/?n=yr8mtzfwee.GetTakenFromNodeSelfIp"
+	b,ok:=getUrlContent(thisUrl)
+	if !ok{
+		fmt.Println("can not get token from "+domain)
+		os.Exit(-1)
+		return
+	}
+	respS:=string(b)
+	const resptP = `token_"`
+	const resptS = `"`+"\n"
+	if strings.HasPrefix(respS,resptP) ==false || strings.HasSuffix(respS,resptS)==false{
+		fmt.Println("can not get token2 from "+domain)
+		os.Exit(-1)
+		return
+	}
+	token:=strings.TrimSuffix(strings.TrimPrefix(respS,resptP),resptS)
+	fmt.Println("get token finish, start server... token:",token)
 	l, err := net.Listen("tcp", ":443")
 	if err != nil {
 		fmt.Println("net.Listen fail " + err.Error())
@@ -35,7 +52,7 @@ CheckHelper [ServerId]
 	gIsCloser:=false
 	go func() {
 		err := http.Serve(l, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			w.Write([]byte(serverId))
+			w.Write([]byte(token))
 		}))
 		gLocker.Lock()
 		isCloser:=gIsCloser
@@ -57,20 +74,26 @@ CheckHelper [ServerId]
 			os.Exit(-1)
 			return
 		}
-		resp, err := http.Get("http://127.0.0.1:443")
-		if err != nil || resp.StatusCode != 200 {
+		resp,ok:=getUrlContent("http://127.0.0.1:443")
+		if ok==false{
 			time.Sleep(time.Second)
 			continue
 		}
-		body := make([]byte, len(serverId)+4096)
-		nr, err := io.ReadAtLeast(resp.Body, body, len(serverId))
-		if err != nil || nr != len(serverId) || bytes.Equal(body[:nr], []byte(serverId)) == false {
+		if bytes.Equal(resp, []byte(token)) == false {
 			time.Sleep(time.Second)
 			continue
 		}
 		break
 	}
-	fmt.Println("CheckHelper ✔")
+	fmt.Println("start web server finish, ask remote to verify...")
+	resp,ok:=getUrlContent("https://"+domain+"/?n=yr8mtzfwee.VerifyTokenFromNodeSelfIp")
+	if !ok || bytes.Equal(resp,[]byte("success"))==false{
+		fmt.Println("verify token fail from "+domain)
+		os.Exit(-1)
+		return
+	}
+
+	fmt.Println("CheckHelper2 ✔")
 	fmt.Println("use Ctrl+C or kill " + strconv.Itoa(os.Getpid()) + " to close it.")
 	waitForExit()
 	gLocker.Lock()
@@ -83,4 +106,21 @@ func waitForExit() {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, os.Interrupt, os.Kill, syscall.SIGTERM)
 	<-ch
+}
+
+func getUrlContent(url string) (b []byte,ok bool){
+	client:=&http.Client{
+		Timeout: time.Second*30,
+	}
+	resp, err := client.Get(url)
+	if err != nil || resp.StatusCode != 200 || resp.Body==nil{
+		return nil,false
+	}
+	defer resp.Body.Close()
+	body := make([]byte, 4096)
+	nr, err := io.ReadFull(resp.Body, body)
+	if err==nil || err==io.ErrUnexpectedEOF{
+		return body[:nr],true
+	}
+	return nil,false
 }
