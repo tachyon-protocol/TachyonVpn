@@ -1,16 +1,7 @@
 package main
 
-import (
-	"fmt"
-	"github.com/tachyon-protocol/udw/udwGoSource/udwGoBuild"
-)
+import "make/buildRelease"
 
 func main() {
-	resp := udwGoBuild.MustBuild(udwGoBuild.BuildRequest{
-		PkgPath:       `make/client`,
-		TargetOs:      `darwin`,
-		TargetCpuArch: `amd64`,
-		EnableRace:    false,
-	})
-	fmt.Println(resp.GetOutputExeFilePath())
+	buildRelease.Build("make/client", "darwin")
 }
