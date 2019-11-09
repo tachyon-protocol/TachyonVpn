@@ -15,7 +15,7 @@
 		* Listen Mode, for servers which can be accessed from Internet directly (with public IP and public port)
 		* `server_linux`
 		* Relay Mode, for servers which can not be accessed from Internet directly and need another 'Listen Mode' server to relay its traffic
-  * `server -UseRelay -RelayServerIp [Listen Mode Server's IP]`
+  		* `server -UseRelay -RelayServerIp [Listen Mode Server's IP]`
 * Router will be a single server for test in this version
     * forward data between clients and servers
     * client and server will not be connected to each other directly in this version
