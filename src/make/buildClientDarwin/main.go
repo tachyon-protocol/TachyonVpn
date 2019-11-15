@@ -1,6 +1,6 @@
 package main
 
-import "make/buildRelease"
+import "buildRelease"
 
 func main() {
 	buildRelease.Build("make/client", "darwin")
