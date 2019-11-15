@@ -1,7 +1,7 @@
 package main
 
 import (
-	"make/buildRelease"
+	"buildRelease"
 )
 
 func main() {
