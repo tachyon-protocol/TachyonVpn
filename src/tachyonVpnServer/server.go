@@ -13,6 +13,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
 	"github.com/tachyon-protocol/udw/udwRand"
 	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
+	"io"
 	"net"
 	"strconv"
 	"sync"
@@ -212,6 +213,9 @@ func (s *Server) Run(req ServerRunReq) {
 			for {
 				buf.Reset()
 				err := udwBinary.ReadByteSliceWithUint32LenToBufW(relayConn, buf)
+				if err == io.EOF {
+					continue
+				}
 				udwErr.PanicIfError(err)
 				err = vpnPacket.Decode(buf.GetBytes())
 				udwErr.PanicIfError(err)
