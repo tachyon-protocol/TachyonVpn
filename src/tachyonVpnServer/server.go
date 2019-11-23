@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"sync"
 	"tachyonVpnProtocol"
-	"tlsPacketDebugger"
+	"time"
 )
 
 type vpnClient struct {
@@ -32,8 +32,11 @@ type vpnClient struct {
 }
 
 type ServerRunReq struct {
-	UseRelay      bool
-	RelayServerIp string
+	UseRelay         bool
+	RelayServerIp    string
+	RelayServerToken string
+
+	Token string
 }
 
 type Server struct {
@@ -42,9 +45,12 @@ type Server struct {
 	clientMap      map[uint64]*vpnClient
 	vpnIpList      [maxCountVpnIp]*vpnClient
 	nextVpnIpIndex int
+
+	req ServerRunReq
 }
 
 func (s *Server) Run(req ServerRunReq) {
+	s.req = req
 	s.clientId = tachyonVpnProtocol.GetClientId() //TODO fixed clientId
 	fmt.Println("ClientId:", s.clientId)
 	tun, err := udwTapTun.NewTun("")
@@ -77,9 +83,13 @@ func (s *Server) Run(req ServerRunReq) {
 				continue
 			}
 			ip := ipPacket.GetDstIp()
+			if udwNet.IsPrivateNetwork(ipPacket.GetSrcIp()) {
+				//udwLog.Log("[ye723euu1ah] private IP address is not allowed", ipPacket.GetSrcAddrString())
+				continue
+			}
 			client := s.getClientByVpnIp(ip)
 			if client == nil {
-				udwLog.Log("[r1tp9rk84m] TUN Read no such client")
+				udwLog.Log("[r1tp9rk84m] TUN Read no such client", ipPacket.GetSrcAddrString())
 				continue
 			}
 			vpnPacket := &tachyonVpnProtocol.VpnPacket{
@@ -107,22 +117,14 @@ func (s *Server) Run(req ServerRunReq) {
 	go func() {
 		for {
 			connToClient := <-acceptPipe
-			if tachyonVpnProtocol.Debug {
-				fmt.Println("<-acceptPipe", connToClient.RemoteAddr())
-			}
 			go func() {
 				vpnPacket := &tachyonVpnProtocol.VpnPacket{}
 				bufW := udwBytes.NewBufWriter(nil)
-				//_buf := make([]byte, 1<<10)
 				for {
-					//_, _err := connToClient.Read(_buf)
-					//udwErr.PanicIfError(_err)
-					//fmt.Println(">>> size",binary.BigEndian.Uint32(_buf[:4]))
-					//continue
 					bufW.Reset()
 					err := udwBinary.ReadByteSliceWithUint32LenToBufW(connToClient, bufW)
 					if err != nil {
-						udwLog.Log("[tw1me5hux3] close conn", err)
+						udwLog.Log("[tw1me5hux3] close conn", err, connToClient.RemoteAddr())
 						_ = connToClient.Close()
 						return
 					}
@@ -132,20 +134,29 @@ func (s *Server) Run(req ServerRunReq) {
 						_ = connToClient.Close()
 						return
 					}
-					if tachyonVpnProtocol.Debug {
-						fmt.Println("read vpnPacket", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
-					}
 					switch vpnPacket.Cmd {
 					case tachyonVpnProtocol.CmdHandshake:
-						s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient) //TODO
-					case tachyonVpnProtocol.CmdData:
-						if tachyonVpnProtocol.Debug {
-							fmt.Println("	CmdData")
+						if s.req.Token == "" {
+							s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
+							udwLog.Log("[4z734vc9pn] New client sent handshake ✔ server not require token", connToClient.RemoteAddr())
+						} else if len(s.req.Token) == len(string(vpnPacket.Data)) && s.req.Token == string(vpnPacket.Data) {
+							s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
+							udwLog.Log("[agz7rzq1kr9] New client token matched ✔", connToClient.RemoteAddr())
+						} else {
+							_ = connToClient.Close()
+							udwLog.Log("[wzh56ty1bur] New client token not match ✘ close conn", connToClient.RemoteAddr())
 						}
-						client := s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
+					case tachyonVpnProtocol.CmdData:
+						client := s.getClient(vpnPacket.ClientIdSender)
+						if client == nil {
+							_ = connToClient.Close()
+							udwLog.Log("[k692xqw1d2n] CmdData close conn cause no such client", vpnPacket.ClientIdSender, connToClient.RemoteAddr())
+							return
+						}
+						//client := s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
 						ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 						if errMsg != "" {
-							udwLog.Log("[txd5xn4ex7] close conn", errMsg, "ipPacket.IsIpv4:",ipPacket.IsIpv4(), "ipPacket.Ipv4HasMoreFragments:",ipPacket.Ipv4HasMoreFragments())
+							udwLog.Log("[txd5xn4ex7] close conn", errMsg, "ipPacket.IsIpv4:", ipPacket.IsIpv4(), "ipPacket.Ipv4HasMoreFragments:", ipPacket.Ipv4HasMoreFragments())
 							_ = connToClient.Close()
 							return
 						}
@@ -160,25 +171,26 @@ func (s *Server) Run(req ServerRunReq) {
 							return
 						}
 					case tachyonVpnProtocol.CmdForward:
-						if tachyonVpnProtocol.Debug {
-							fmt.Println("	CmdForward")
+						client := s.getClient(vpnPacket.ClientIdSender)
+						if client == nil {
+							_ = connToClient.Close()
+							udwLog.Log("[be8meu1vhm1d] CmdForward close conn cause no such client", vpnPacket.ClientIdSender, connToClient.RemoteAddr())
+							return
 						}
-						//TODO this version not implement handshake between client and server, thus here must create vpnClient for client
-						s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
-						nextPeer := s.getOrNewClientFromDirectConn(vpnPacket.ClientIdReceiver, connToClient)
+						nextPeer := s.getClient(vpnPacket.ClientIdReceiver)
 						if nextPeer == nil {
-							fmt.Println("[4tz1d2932g] forward failed nextPeer[", vpnPacket.ClientIdReceiver, "] == nil")
+							udwLog.Log("[4tz1d2932g] forward failed nextPeer[", vpnPacket.ClientIdReceiver, "] == nil")
 							continue
 						}
 						err := udwBinary.WriteByteSliceWithUint32LenNoAllocV2(nextPeer.connToClient, bufW.GetBytes()) //TLS layer
 						if err != nil {
-							fmt.Println("[va1gz58zm3] forward failed", err)
+							udwLog.Log("[va1gz58zm3] forward failed", err)
 							continue
 						}
 					default:
-						if tachyonVpnProtocol.Debug {
-							fmt.Println("	Cmd Unknown[", vpnPacket.Cmd, "]")
-						}
+						_ = connToClient.Close()
+						udwLog.Log("[rjb3nay1ezg] Cmd unknown", vpnPacket.Cmd, "close conn", connToClient.RemoteAddr())
+						return
 					}
 				}
 			}()
@@ -187,6 +199,7 @@ func (s *Server) Run(req ServerRunReq) {
 
 	//two methods to accept new vpn conn
 	if req.UseRelay {
+		//TODO reconnect to relay server
 		relayConn, err := net.Dial("tcp", req.RelayServerIp+":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
 		udwErr.PanicIfError(err)
 		fmt.Println("Server connected to relay server[", req.RelayServerIp, "] ✔")
@@ -199,6 +212,7 @@ func (s *Server) Run(req ServerRunReq) {
 			vpnPacket = &tachyonVpnProtocol.VpnPacket{
 				Cmd:            tachyonVpnProtocol.CmdHandshake,
 				ClientIdSender: s.clientId,
+				Data:           []byte(req.RelayServerToken),
 			}
 			buf = udwBytes.NewBufWriter(nil)
 		)
@@ -207,30 +221,25 @@ func (s *Server) Run(req ServerRunReq) {
 		if err != nil {
 			panic("[tcp3kt1mqs] " + err.Error())
 		}
-		//TODO wait for response from Relay Server
 		vpnPacket.Reset()
 		go func() {
 			for {
 				buf.Reset()
 				err := udwBinary.ReadByteSliceWithUint32LenToBufW(relayConn, buf)
 				if err == io.EOF {
+					udwLog.Log("[e9z4rvv1u2x] EOF")
+					time.Sleep(time.Second * 3) //TODO for debug
 					continue
 				}
-				udwErr.PanicIfError(err)
+				udwErr.PanicIfError(err) //TODO
 				err = vpnPacket.Decode(buf.GetBytes())
-				udwErr.PanicIfError(err)
+				udwErr.PanicIfError(err) //TODO
 				if vpnPacket.Cmd == tachyonVpnProtocol.CmdForward {
 					if vpnPacket.ClientIdReceiver == s.clientId {
 						//TODO Server will use vpnPacket.ClientIdFrom to identify different TLS connections
 						//TODO vpnPacket.ClientIdFrom should not be real Client's Id
 						//TODO Relay Server could replace real Client's Id with fake one
-						if tachyonVpnProtocol.Debug {
-							fmt.Println("read from relayConn", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
-						}
 						client := s.getOrNewClientFromRelayConn(vpnPacket.ClientIdSender, relayConn, acceptPipe)
-						if tachyonVpnProtocol.Debug {
-							tlsPacketDebugger.Dump("---", vpnPacket.Data)
-						}
 						_, err := client.connRelaySide.Write(vpnPacket.Data) //TLS
 						if err != nil {
 							udwLog.Log("[dy11zv1eg6]", err)
@@ -244,6 +253,18 @@ func (s *Server) Run(req ServerRunReq) {
 			}
 		}()
 	} else {
+		/**
+				tlsConfig := &tls.Config{
+			Certificates: []tls.Certificate{
+				*udwTlsSelfSignCertV2.GetTlsCertificate(),
+			},
+			NextProtos: []string{"http/1.1"},
+		}
+		udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort), func(conn net.Conn) {
+			acceptPipe <- tls.Server(conn, tlsConfig)
+		})
+
+		*/
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
 		udwErr.PanicIfError(err)
 		go func() {
@@ -254,7 +275,7 @@ func (s *Server) Run(req ServerRunReq) {
 					Certificates: []tls.Certificate{ //TODO optimize allocate
 						*udwTlsSelfSignCertV2.GetTlsCertificate(),
 					},
-					NextProtos:   []string{"http/1.1"},
+					NextProtos: []string{"http/1.1"},
 				})
 				acceptPipe <- conn
 			}
