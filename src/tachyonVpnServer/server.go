@@ -32,11 +32,11 @@ type vpnClient struct {
 }
 
 type ServerRunReq struct {
-	UseRelay         bool
-	RelayServerIp    string
-	RelayServerToken string
+	UseRelay        bool
+	RelayServerIp   string
+	RelayServerTKey string
 
-	Token string
+	SelfTKey string
 }
 
 type Server struct {
@@ -136,15 +136,15 @@ func (s *Server) Run(req ServerRunReq) {
 					}
 					switch vpnPacket.Cmd {
 					case tachyonVpnProtocol.CmdHandshake:
-						if s.req.Token == "" {
+						if s.req.SelfTKey == "" {
 							s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
-							udwLog.Log("[4z734vc9pn] New client sent handshake ✔ server not require token", connToClient.RemoteAddr())
-						} else if len(s.req.Token) == len(string(vpnPacket.Data)) && s.req.Token == string(vpnPacket.Data) {
+							udwLog.Log("[4z734vc9pn] New client sent handshake ✔ server not require TKey", connToClient.RemoteAddr())
+						} else if len(s.req.SelfTKey) == len(string(vpnPacket.Data)) && s.req.SelfTKey == string(vpnPacket.Data) {
 							s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
-							udwLog.Log("[agz7rzq1kr9] New client token matched ✔", connToClient.RemoteAddr())
+							udwLog.Log("[agz7rzq1kr9] New client TKey matched ✔", connToClient.RemoteAddr())
 						} else {
 							_ = connToClient.Close()
-							udwLog.Log("[wzh56ty1bur] New client token not match ✘ close conn", connToClient.RemoteAddr())
+							udwLog.Log("[wzh56ty1bur] New client TKey not match ✘ close conn", connToClient.RemoteAddr())
 						}
 					case tachyonVpnProtocol.CmdData:
 						client := s.getClient(vpnPacket.ClientIdSender)
@@ -212,7 +212,7 @@ func (s *Server) Run(req ServerRunReq) {
 			vpnPacket = &tachyonVpnProtocol.VpnPacket{
 				Cmd:            tachyonVpnProtocol.CmdHandshake,
 				ClientIdSender: s.clientId,
-				Data:           []byte(req.RelayServerToken),
+				Data:           []byte(req.RelayServerTKey),
 			}
 			buf = udwBytes.NewBufWriter(nil)
 		)

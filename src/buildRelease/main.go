@@ -13,6 +13,6 @@ func Build(pkg string, os string) string {
 		TargetCpuArch: `amd64`,
 		EnableRace:    false,
 	})
-	udwFile.MustCopy(resp.GetOutputExeFilePath(), filepath.Join(udwFile.MustGetHomeDirPath(), "Downloads", filepath.Base(pkg)+"_"+os))
+	udwFile.MustCopy(resp.GetOutputExeFilePath(), filepath.Join("/Users/Shared/Dev/Output", filepath.Base(pkg)+"_"+os))
 	return resp.GetOutputExeFilePath()
 }

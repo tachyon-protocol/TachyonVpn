@@ -23,12 +23,12 @@ import (
 )
 
 type ClientRunReq struct {
-	ServerIp    string
-	ServerToken string
+	ServerIp   string
+	ServerTKey string
 
 	IsRelay            bool
 	ExitServerClientId uint64 //required when IsRelay is true
-	ExitServerToken    string //required when IsRelay is true
+	ExitServerTKey     string //required when IsRelay is true
 }
 
 func ClientRun(req ClientRunReq) {
@@ -56,7 +56,7 @@ func ClientRun(req ClientRunReq) {
 		handshakeVpnPacket = tachyonVpnProtocol.VpnPacket{
 			Cmd:            tachyonVpnProtocol.CmdHandshake,
 			ClientIdSender: clientIdToServer,
-			Data:           []byte(req.ServerToken),
+			Data:           []byte(req.ServerTKey),
 		}
 		handshakeBuf = udwBytes.NewBufWriter(nil)
 	)
@@ -128,7 +128,7 @@ func ClientRun(req ClientRunReq) {
 		}()
 		udwLog.Log("send handshake to ExitServer...")
 		handshakeVpnPacket.ClientIdSender = clientIdToExitServer
-		handshakeVpnPacket.Data = []byte(req.ExitServerToken)
+		handshakeVpnPacket.Data = []byte(req.ExitServerTKey)
 		handshakeBuf.Reset()
 		handshakeVpnPacket.Encode(handshakeBuf)
 		err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(vpnConn, handshakeBuf.GetBytes())
