@@ -253,18 +253,6 @@ func (s *Server) Run(req ServerRunReq) {
 			}
 		}()
 	} else {
-		/**
-				tlsConfig := &tls.Config{
-			Certificates: []tls.Certificate{
-				*udwTlsSelfSignCertV2.GetTlsCertificate(),
-			},
-			NextProtos: []string{"http/1.1"},
-		}
-		udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort), func(conn net.Conn) {
-			acceptPipe <- tls.Server(conn, tlsConfig)
-		})
-
-		*/
 		ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
 		udwErr.PanicIfError(err)
 		go func() {
