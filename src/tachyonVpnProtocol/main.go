@@ -14,7 +14,7 @@ const (
 	Mss                  = Mtu - (overheadTcpHeaderMax - overheadUdpHeader)
 )
 
-const VpnPort = 29443
+const VpnPort = 29444
 
 const (
 	CmdData    byte = 1
