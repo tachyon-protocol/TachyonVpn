@@ -25,7 +25,7 @@
 * Router will be a single server for test in this version
     * forward data between clients and servers
     * client and server will not be connected to each other directly in this version
-![structure](http://structure.png)
+![structure](https://raw.githubusercontent.com/tachyon-protocol/TachyonVpn/server_token/structure.png)
 * Protocol Layers
 	* VPN Protocol Layer
 		* Packet Type
