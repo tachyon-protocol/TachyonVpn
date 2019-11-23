@@ -3,24 +3,6 @@
 - Target Platform：Linux/Darwin/Windows/Mac
 - CLI Only
 
-## Usage
-### Direct Mode
-- For servers which can be accessed from Internet directly (with public IP and public port)
-- run server `server`
-- run client `client [server's IP]`
-### Relay Mode
-- For servers which can not be accessed from Internet directly and need another 'Listen Mode' server to relay its traffic
-- run relay server `server`
-- run exit server `server -UseRelay -RelayServerIp [relay server's IP]`
-- run client `client -IsRelay -ServerIp [relay server's IP] -ExitServerClientId [exit server's ClientId]`
-### TKey Direct Mode
-- run server `server -SelfTKey [server's TKey]`
-- run client `client -ServerIp [server's IP] -ServerTKey [server's TKey]`
-### TKey Relay Mode
-- run relay server `server -SelfTKey [relay server's TKey]`
-- run exit server `server -SelfTKey [exit server's TKey] -UseRelay -RelayServerIp [relay server's IP] -RelayServerTKey [relay server's TKey]`
-- run client `client -IsRelay -ServerIp [relay server's IP] -ServerTKey [relay server's TKey] -ExitServerClientId [exit server's ClientId] -ExitServerToken [exit server's TKey]`
-
 ## Details of demo version
 * Router will be a single server for test in this version
     * forward data between clients and servers
@@ -45,3 +27,21 @@
 			* IP Packet > TCP
 				* TLS > Forward Protocol
 				    * TLS > VPN Protocol > Data IP Packet
+
+## Usage
+### Direct Mode
+- For servers which can be accessed from Internet directly (with public IP and public port)
+- run server `server`
+- run client `client [server's IP]`
+### Relay Mode
+- For servers which can not be accessed from Internet directly and need another 'Listen Mode' server to relay its traffic
+- run relay server `server`
+- run exit server `server -UseRelay -RelayServerIp [relay server's IP]`
+- run client `client -IsRelay -ServerIp [relay server's IP] -ExitServerClientId [exit server's ClientId]`
+### TKey Direct Mode
+- run server `server -SelfTKey [server's TKey]`
+- run client `client -ServerIp [server's IP] -ServerTKey [server's TKey]`
+### TKey Relay Mode
+- run relay server `server -SelfTKey [relay server's TKey]`
+- run exit server `server -SelfTKey [exit server's TKey] -UseRelay -RelayServerIp [relay server's IP] -RelayServerTKey [relay server's TKey]`
+- run client `client -IsRelay -ServerIp [relay server's IP] -ServerTKey [relay server's TKey] -ExitServerClientId [exit server's ClientId] -ExitServerToken [exit server's TKey]`
