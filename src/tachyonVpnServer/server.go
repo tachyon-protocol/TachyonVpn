@@ -111,7 +111,7 @@ func (s *Server) Run(req ServerRunReq) {
 	}()
 
 	var (
-		acceptPipe = make(chan net.Conn, 10<<20)
+		acceptPipe = make(chan net.Conn, 10<<10)
 	)
 	//read thread from vpn conn
 	go func() {
