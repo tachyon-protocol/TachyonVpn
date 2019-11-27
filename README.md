@@ -23,7 +23,7 @@
 		* when: client connects to server directly:
 			* IP Packet > TCP
 				* TLS > VPN Protocol > Data IP Packet
-		* when: client and Server connect to the Router, and the Router will forward traffic
+		* when: client and server connect to the Router, and the Router will forward traffic
 			* IP Packet > TCP
 				* TLS > Forward Protocol
 				    * TLS > VPN Protocol > Data IP Packet
