@@ -135,6 +135,17 @@ func (s *Server) Run(req ServerRunReq) {
 						return
 					}
 					switch vpnPacket.Cmd {
+					case tachyonVpnProtocol.CmdPing:
+						bufW.Reset()
+						vpnPacket.ClientIdReceiver = vpnPacket.ClientIdSender
+						vpnPacket.ClientIdSender = s.clientId
+						vpnPacket.Encode(bufW)
+						err := udwBinary.WriteByteSliceWithUint32LenNoAllocV2(connToClient, bufW.GetBytes())
+						if err != nil {
+							udwLog.Log("[2cpj1sbv37s] close conn", err)
+							_ = connToClient.Close()
+							return
+						}
 					case tachyonVpnProtocol.CmdHandshake:
 						if s.req.SelfTKey == "" {
 							s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
