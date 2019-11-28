@@ -62,6 +62,7 @@ func (ctx *httpClientCtx) Send(){
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
+				MinVersion: tls.VersionTLS12,
 			},
 		},
 	}

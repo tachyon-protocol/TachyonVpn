@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"sync"
 	"tachyonVpnProtocol"
+	"tyTls"
 )
 
 type ClientRunReq struct {
@@ -32,6 +33,7 @@ type ClientRunReq struct {
 }
 
 func ClientRun(req ClientRunReq) {
+	tyTls.AllowTlsVersion13()
 	var (
 		clientIdToServer     = tachyonVpnProtocol.GetClientId()
 		clientIdToExitServer = clientIdToServer
@@ -47,11 +49,7 @@ func ClientRun(req ClientRunReq) {
 	udwErr.PanicIfError(err)
 	vpnConn, err := net.Dial("tcp", req.ServerIp+":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
 	udwErr.PanicIfError(err)
-	vpnConn = tls.Client(vpnConn, &tls.Config{
-		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
-		InsecureSkipVerify: true,
-		NextProtos:         []string{"http/1.1", "h2"},
-	})
+	vpnConn = tls.Client(vpnConn, newInsecureClientTlsConifg())
 	var (
 		handshakeVpnPacket = tachyonVpnProtocol.VpnPacket{
 			Cmd:            tachyonVpnProtocol.CmdHandshake,
@@ -72,11 +70,7 @@ func ClientRun(req ClientRunReq) {
 			connRelaySide, plain = tachyonVpnProtocol.NewInternalConnectionDual()
 			relayConn            = vpnConn
 		)
-		vpnConn = tls.Client(plain, &tls.Config{
-			ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
-			InsecureSkipVerify: true,
-			NextProtos:         []string{"http/1.1", "h2"},
-		})
+		vpnConn = tls.Client(plain, newInsecureClientTlsConifg())
 		go func() {
 			var (
 				buf       = udwBytes.NewBufWriter(nil)
@@ -104,7 +98,7 @@ func ClientRun(req ClientRunReq) {
 				ClientIdSender:   clientIdToServer,
 				ClientIdReceiver: req.ExitServerClientId,
 			}
-			buf := make([]byte, 10<<20)
+			buf := make([]byte, 16*1024)
 			bufW := udwBytes.NewBufWriter(nil)
 			for {
 				n, err := connRelaySide.Read(buf)
@@ -144,7 +138,7 @@ func ClientRun(req ClientRunReq) {
 			ClientIdSender:   clientIdToExitServer,
 			ClientIdReceiver: req.ExitServerClientId,
 		}
-		buf := make([]byte, 10<<20)
+		buf := make([]byte, 16*1024)
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := tun.Read(buf)
@@ -225,4 +219,13 @@ func clientCreateTun(vpnServerIp string) (tun io.ReadWriteCloser, err error) {
 			return nil
 		}),
 	}, nil
+}
+
+func newInsecureClientTlsConifg() *tls.Config{
+	return &tls.Config{
+		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
+		InsecureSkipVerify: true,
+		NextProtos:         []string{"http/1.1", "h2"},
+		MinVersion: tls.VersionTLS12,
+	}
 }

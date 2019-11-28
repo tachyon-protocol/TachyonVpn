@@ -64,6 +64,7 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 			*udwTlsSelfSignCertV2.GetTlsCertificate(),
 		},
 		NextProtos:   []string{"http/1.1"},
+		MinVersion: tls.VersionTLS12,
 	})
 	client.connToClient = right
 	client.connRelaySide = left
@@ -80,7 +81,7 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 			ClientIdSender:   s.clientId,
 			ClientIdReceiver: clientId,
 		}
-		buf := make([]byte, 10<<20)
+		buf := make([]byte, 16*1024)
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := client.connRelaySide.Read(buf)

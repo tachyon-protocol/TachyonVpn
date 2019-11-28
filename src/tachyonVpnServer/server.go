@@ -19,6 +19,7 @@ import (
 	"sync"
 	"tachyonVpnProtocol"
 	"time"
+	"tyTls"
 )
 
 type vpnClient struct {
@@ -51,6 +52,7 @@ type Server struct {
 }
 
 func (s *Server) Run(req ServerRunReq) {
+	tyTls.AllowTlsVersion13()
 	s.req = req
 	s.clientId = tachyonVpnProtocol.GetClientId() //TODO fixed clientId
 	fmt.Println("ClientId:", s.clientId)
@@ -66,11 +68,16 @@ func (s *Server) Run(req ServerRunReq) {
 	udwErr.PanicIfError(err)
 	s.tun = tun
 	networkConfig()
+	tlsServerCert:=udwTlsSelfSignCertV2.GetTlsCertificate()
+	x509Cert,errMsg:=tyTls.GetX509CertFromTlsCert(tlsServerCert)
+	udwErr.PanicIfErrorMsg(errMsg)
+	fmt.Println("TlsServerCert: ")
+	fmt.Println(tyTls.MustEncodeObjToPemString(x509Cert))
 	fmt.Println("Server started ✔")
 
 	//read thread from TUN
 	go func() {
-		bufR := make([]byte, 10<<20)
+		bufR := make([]byte, 16*1024)
 		bufW := udwBytes.NewBufWriter(nil)
 		for {
 			n, err := tun.Read(bufR)
@@ -122,6 +129,7 @@ func (s *Server) Run(req ServerRunReq) {
 			ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
 			InsecureSkipVerify: true,
 			NextProtos:         []string{"http/1.1", "h2"},
+			MinVersion: tls.VersionTLS12,
 		})
 		var (
 			vpnPacket = &tachyonVpnProtocol.VpnPacket{
@@ -179,6 +187,7 @@ func (s *Server) Run(req ServerRunReq) {
 						*udwTlsSelfSignCertV2.GetTlsCertificate(),
 					},
 					NextProtos: []string{"http/1.1"},
+					MinVersion: tls.VersionTLS12,
 				})
 				go s.clientTcpConnHandle(conn)
 			}

@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 	"github.com/tachyon-protocol/udw/udwTime"
+	"tachyonVpnInfoServer/tachyonVpnInfoClient"
 )
 
 func ServerAsyncRun() func(){
@@ -45,6 +46,8 @@ func serverHandler(w http.ResponseWriter,req *http.Request){
 		values:=req.URL.Query()
 		n:=values.Get("n")
 		switch n {
+		case "RegisterAsVpnNode":
+
 		case "RegisterFromIpAsVpnNode":
 			fromIp:=getClientIpStringIgnoreError(req)
 			serverRpcObj{}.RegisterFromIpAsVpnNode(fromIp)
@@ -67,6 +70,7 @@ func serverHandler(w http.ResponseWriter,req *http.Request){
 }
 
 type serverRpcObj struct{}
+
 func (serverRpcObj) RegisterFromIpAsVpnNode(fromIp string){
 	startTime:=time.Now()
 	getDb().MustSet(k1VpnNodeIp,fromIp,udwTime.MustDbTimeGetStringFromObj(startTime))
@@ -115,4 +119,3 @@ func getClientIpStringIgnoreError(req *http.Request) string{
 	return ""
 }
 
-const k1VpnNodeIp = "k1VpnNodeIp"

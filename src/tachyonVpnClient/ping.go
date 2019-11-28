@@ -5,30 +5,38 @@ import (
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwLog"
-	"github.com/tachyon-protocol/udw/udwRand"
 	"net"
 	"strconv"
 	"tachyonVpnProtocol"
 	"time"
+	"tyTls"
+	"errors"
 )
 
 type PingReq struct {
 	Ip string
+	ServerCertPem string // if it is "", it will use InsecureSkipVerify
 	Count int
 	DebugLog bool
 }
 
 //TODO relay mode
 func Ping (req PingReq) error {
+	var tlsConfig *tls.Config
+	if req.ServerCertPem==""{
+		tlsConfig = newInsecureClientTlsConifg()
+	}else{
+		var errMsg string
+		tlsConfig,errMsg = tyTls.GetClientTlsConfigServerCertPem(req.ServerCertPem)
+		if errMsg!=""{
+			return errors.New(errMsg)
+		}
+	}
 	conn, err := net.Dial("tcp", req.Ip+":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
 	if err != nil {
 		return err
 	}
-	conn = tls.Client(conn, &tls.Config{
-		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
-		InsecureSkipVerify: true,
-		NextProtos:         []string{"http/1.1", "h2"},
-	})
+	conn = tls.Client(conn, tlsConfig)
 	var (
 		pingPacket = tachyonVpnProtocol.VpnPacket{
 			Cmd:            tachyonVpnProtocol.CmdPing,

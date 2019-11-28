@@ -23,7 +23,7 @@ func main(){
 	for fullpath:=range dirSet{
 		rel:=udwFile.MustGetRelativePath(thisPath,fullpath)
 		thisPkg:="github.com/tachyon-protocol/udw/"+rel
-		udwCmd.MustRun("kmg goinstall "+thisPkg)
-		udwCmd.MustRun("kmg go test -v -race "+thisPkg)
+		udwCmd.CmdString("go install "+thisPkg).MustSetEnv("GOPATH",udwFile.MustGetWd()).MustRun()
+		udwCmd.CmdString("go test -v -race "+thisPkg).MustSetEnv("GOPATH",udwFile.MustGetWd()).MustRun()
 	}
 }
