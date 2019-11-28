@@ -20,6 +20,7 @@ const (
 	CmdData    byte = 1
 	CmdForward byte = 2
 	CmdHandshake byte = 3
+	CmdPing byte = 4
 )
 
 type VpnPacket struct {
