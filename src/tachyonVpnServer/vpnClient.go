@@ -45,7 +45,7 @@ func (s *Server) getOrNewClientFromDirectConn(clientId uint64, connToClient net.
 	return client
 }
 
-func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn, acceptPipe chan net.Conn) *vpnClient {
+func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn) *vpnClient {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
@@ -69,7 +69,7 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	client.connRelaySide = left
 	s.clientMap[client.id] = client
 	err := s.clientAllocateVpnIp_NoLock(client)
-	acceptPipe <- client.connToClient
+	go s.clientTcpConnHandle(client.connToClient)
 	s.locker.Unlock()
 	if err != nil {
 		panic("[ub4fm53v26] " + err.Error())
