@@ -12,5 +12,6 @@ zzzig_*
 /pkg
 /log
 /tmp
+/src/tmp
 *.apk
 *.rdb
