@@ -15,7 +15,7 @@ import (
 
 type PingReq struct {
 	Ip string
-	ServerCertPem string // if it is "", it will use InsecureSkipVerify
+	ServerChk string // if it is "", it will use InsecureSkipVerify
 	Count int
 	DebugLog bool
 }
@@ -23,11 +23,13 @@ type PingReq struct {
 //TODO relay mode
 func Ping (req PingReq) error {
 	var tlsConfig *tls.Config
-	if req.ServerCertPem==""{
+	if req.ServerChk==""{
 		tlsConfig = newInsecureClientTlsConifg()
 	}else{
 		var errMsg string
-		tlsConfig,errMsg = tyTls.GetClientTlsConfigServerCertPem(req.ServerCertPem)
+		tlsConfig,errMsg = tyTls.NewClientTlsConfigWithChk(tyTls.NewClientTlsConfigWithChkReq{
+			ServerChk: req.ServerChk,
+		})
 		if errMsg!=""{
 			return errors.New(errMsg)
 		}

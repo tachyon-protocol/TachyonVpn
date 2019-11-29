@@ -52,7 +52,7 @@ type Server struct {
 }
 
 func (s *Server) Run(req ServerRunReq) {
-	tyTls.AllowTlsVersion13()
+	tyTls.EnableTlsVersion13()
 	s.req = req
 	s.clientId = tachyonVpnProtocol.GetClientId() //TODO fixed clientId
 	fmt.Println("ClientId:", s.clientId)
@@ -69,11 +69,13 @@ func (s *Server) Run(req ServerRunReq) {
 	s.tun = tun
 	networkConfig()
 	tlsServerCert:=udwTlsSelfSignCertV2.GetTlsCertificate()
-	x509Cert,errMsg:=tyTls.GetX509CertFromTlsCert(tlsServerCert)
+	sTlsConfig,errMsg:=tyTls.NewServerTlsConfigWithChk(tyTls.NewServerTlsConfigWithChkReq{
+		ServerCert: *tlsServerCert,
+	})
 	udwErr.PanicIfErrorMsg(errMsg)
-	fmt.Println("TlsServerCert: ")
-	fmt.Println(tyTls.MustEncodeObjToPemString(x509Cert))
+	fmt.Println("ServerChk: "+tyTls.MustHashChkFromTlsCert(tlsServerCert))
 	fmt.Println("Server started ✔")
+
 
 	//read thread from TUN
 	go func() {
@@ -182,13 +184,7 @@ func (s *Server) Run(req ServerRunReq) {
 			for {
 				conn, err := ln.Accept()
 				udwErr.PanicIfError(err)
-				conn = tls.Server(conn, &tls.Config{
-					Certificates: []tls.Certificate{ //TODO optimize allocate
-						*udwTlsSelfSignCertV2.GetTlsCertificate(),
-					},
-					NextProtos: []string{"http/1.1"},
-					MinVersion: tls.VersionTLS12,
-				})
+				conn = tls.Server(conn, sTlsConfig)
 				go s.clientTcpConnHandle(conn)
 			}
 		}()

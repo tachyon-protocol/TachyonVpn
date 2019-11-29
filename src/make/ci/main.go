@@ -8,6 +8,8 @@ import (
 )
 
 func main(){
+	tryGoInstall("make/client")
+	tryGoInstall("make/server")
 	thisPath:=udwFile.MustGetFullPath("src/github.com/tachyon-protocol/udw")
 	dirSet:=map[string]struct{}{}
 	for _,fullpath:=range udwFile.MustGetAllFiles(thisPath){
@@ -23,7 +25,11 @@ func main(){
 	for fullpath:=range dirSet{
 		rel:=udwFile.MustGetRelativePath(thisPath,fullpath)
 		thisPkg:="github.com/tachyon-protocol/udw/"+rel
-		udwCmd.CmdString("go install "+thisPkg).MustSetEnv("GOPATH",udwFile.MustGetWd()).MustRun()
+		tryGoInstall(thisPkg)
 		udwCmd.CmdString("go test -v -race "+thisPkg).MustSetEnv("GOPATH",udwFile.MustGetWd()).MustRun()
 	}
+}
+
+func tryGoInstall(pkgPath string) {
+	udwCmd.CmdString("go install "+pkgPath).MustSetEnv("GOPATH",udwFile.MustGetWd()).MustRun()
 }

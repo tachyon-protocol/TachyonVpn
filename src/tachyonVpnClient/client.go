@@ -33,7 +33,7 @@ type ClientRunReq struct {
 }
 
 func ClientRun(req ClientRunReq) {
-	tyTls.AllowTlsVersion13()
+	tyTls.EnableTlsVersion13()
 	var (
 		clientIdToServer     = tachyonVpnProtocol.GetClientId()
 		clientIdToExitServer = clientIdToServer
