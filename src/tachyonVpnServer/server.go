@@ -121,7 +121,6 @@ func (s *Server) Run(req ServerRunReq) {
 
 	//two methods to accept new vpn conn
 	if req.UseRelay {
-		//TODO reconnect to relay server
 		relayConn, err := net.Dial("tcp", req.RelayServerIp+":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
 		udwErr.PanicIfError(err)
 		fmt.Println("Server connected to relay server[", req.RelayServerIp, "] ✔")
