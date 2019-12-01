@@ -2,6 +2,7 @@ package tachyonVpnClient
 
 import (
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
@@ -67,7 +68,8 @@ func (c *Client) connect() error {
 					_ = vpnConn.Close()
 					return
 				}
-				if vpnPacket.Cmd == tachyonVpnProtocol.CmdForward {
+				switch vpnPacket.Cmd {
+				case tachyonVpnProtocol.CmdForward:
 					_, err := connRelaySide.Write(vpnPacket.Data)
 					if err != nil {
 						udwLog.Log("[8gys171bvm] close 3 connections", err)
@@ -76,7 +78,10 @@ func (c *Client) connect() error {
 						_ = vpnConn.Close()
 						return
 					}
-				} else {
+				case tachyonVpnProtocol.CmdKeepAlive:
+					i := binary.LittleEndian.Uint64(vpnPacket.Data)
+					c.keepAliveChan <- i
+				default:
 					fmt.Println("[a3t7vfh1ms] Unexpected Cmd[", vpnPacket.Cmd, "]")
 				}
 			}
@@ -131,7 +136,7 @@ func (c *Client) connect() error {
 }
 
 func (c *Client) keepAliveThread() {
-	c.keepAliveChan = make(chan uint64)
+	c.keepAliveChan = make(chan uint64, 10)
 	go func() {
 		i := uint64(0)
 		vpnPacket := &tachyonVpnProtocol.VpnPacket{

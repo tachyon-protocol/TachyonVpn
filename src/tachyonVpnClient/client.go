@@ -2,6 +2,7 @@ package tachyonVpnClient
 
 import (
 	"crypto/tls"
+	"encoding/binary"
 	"errors"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
@@ -122,11 +123,18 @@ func (c *Client) Run(req RunReq) {
 			udwErr.PanicIfError(err)
 			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
 			if errMsg != "" {
-				panic("[zdy1mx9y3h]" + errMsg)
+				udwLog.Log("[zdy1mx9y3h]", errMsg)
+				continue
 			}
-			_, err = tun.Write(ipPacket.SerializeToBuf())
-			if err != nil {
-				udwLog.Log("[wmw12fyr9e] TUN Write error", err)
+			switch vpnPacket.Cmd {
+			case tachyonVpnProtocol.CmdData:
+				_, err = tun.Write(ipPacket.SerializeToBuf())
+				if err != nil {
+					udwLog.Log("[wmw12fyr9e] TUN Write error", err)
+				}
+			case tachyonVpnProtocol.CmdKeepAlive:
+				i := binary.LittleEndian.Uint64(vpnPacket.Data)
+				c.keepAliveChan <- i
 			}
 		}
 	}()
