@@ -10,6 +10,7 @@ import (
 	"net"
 	"strconv"
 	"tachyonVpnProtocol"
+	"time"
 )
 
 func (c *Client) connect() error {
@@ -31,6 +32,9 @@ func (c *Client) connect() error {
 	if err != nil {
 		return errors.New("[52y73b9e89] " + err.Error())
 	}
+	c.connLock.Lock()
+	c.directVpnConn = vpnConn
+	c.connLock.Unlock()
 	serverType := "DIRECT"
 	if c.req.IsRelay {
 		serverType = "RELAY"
@@ -120,9 +124,65 @@ func (c *Client) connect() error {
 		udwLog.Log("sent handshake to ExitServer ✔")
 	}
 	fmt.Println("Connected to", serverType, "Server ✔")
-	c.vpnConnLock.Lock()
+	c.connLock.Lock()
 	c.vpnConn = vpnConn
-	c.vpnConnLock.Unlock()
+	c.connLock.Unlock()
 	return nil
 }
 
+func (c *Client) keepAliveThread() {
+	c.keepAliveChan = make(chan uint64)
+	go func() {
+		i := uint64(0)
+		vpnPacket := &tachyonVpnProtocol.VpnPacket{
+			Cmd:            tachyonVpnProtocol.CmdKeepAlive,
+			ClientIdSender: c.clientId,
+		}
+		bufW := udwBytes.NewBufWriter(nil)
+		const timeout = time.Second * 2
+		timer := time.NewTimer(timeout)
+		for {
+			c.connLock.Lock()
+			directVpnConn := c.directVpnConn
+			c.connLock.Unlock()
+			vpnPacket.Encode(bufW)
+			bufW.WriteLittleEndUint64(i)
+			err := udwBinary.WriteByteSliceWithUint32LenNoAllocV2(directVpnConn, bufW.GetBytes())
+			if err != nil {
+				c.reconnect()
+				continue
+			}
+			timer.Reset(timeout)
+			select {
+			case <-timer.C:
+				udwLog.Log("[snc1hhr1ems1q] keepAlive timeout", i)
+				c.reconnect()
+			case _i := <-c.keepAliveChan:
+				if _i == i {
+					i++
+					time.Sleep(timeout / 2)
+					continue
+				}
+				udwLog.Log("[snc1hhr1ems1q] keepAlive error: i not match, expect", i, "but got", _i)
+				c.reconnect()
+			}
+		}
+	}()
+}
+
+func (c *Client) reconnect() {
+	c.connLock.Lock()
+	_ = c.vpnConn.Close()
+	_ = c.directVpnConn.Close()
+	c.connLock.Unlock()
+	for {
+		udwLog.Log("[ruu1n967nwm] RECONNECT...")
+		err := c.connect()
+		if err != nil {
+			udwLog.Log("[ruu1n967nwm] RECONNECT Failed", err)
+			continue
+		}
+		udwLog.Log("[ruu1n967nwm] RECONNECT Succeed ✔")
+		return
+	}
+}

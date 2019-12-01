@@ -35,8 +35,10 @@ type Client struct {
 	req                  RunReq
 	clientId             uint64
 	clientIdToExitServer uint64
-	vpnConnLock sync.Mutex
-	vpnConn net.Conn
+	keepAliveChan        chan uint64
+	connLock             sync.Mutex
+	directVpnConn        net.Conn
+	vpnConn              net.Conn
 }
 
 func (c *Client) Run(req RunReq) {
@@ -53,6 +55,7 @@ func (c *Client) Run(req RunReq) {
 	tun, err := createTun(req.ServerIp)
 	udwErr.PanicIfError(err)
 	err = c.connect()
+	c.keepAliveThread()
 	udwErr.PanicIfError(err)
 	go func() {
 		vpnPacket := &tachyonVpnProtocol.VpnPacket{
@@ -62,13 +65,13 @@ func (c *Client) Run(req RunReq) {
 		}
 		buf := make([]byte, 16*1024)
 		bufW := udwBytes.NewBufWriter(nil)
-		c.vpnConnLock.Lock()
+		c.connLock.Lock()
 		vpnConn := c.vpnConn
-		c.vpnConnLock.Unlock()
+		c.connLock.Unlock()
 		for {
 			n, err := tun.Read(buf)
 			if err != nil {
-				panic("[upe1hcb1q39h] "+err.Error())
+				panic("[upe1hcb1q39h] " + err.Error())
 			}
 			vpnPacket.Data = buf[:n]
 			bufW.Reset()
@@ -76,11 +79,11 @@ func (c *Client) Run(req RunReq) {
 			for {
 				err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(vpnConn, bufW.GetBytes())
 				if err != nil {
-					c.vpnConnLock.Lock()
+					c.connLock.Lock()
 					_vpnConn := c.vpnConn
-					c.vpnConnLock.Unlock()
+					c.connLock.Unlock()
 					if vpnConn == _vpnConn {
-						time.Sleep(time.Millisecond*50)
+						time.Sleep(time.Millisecond * 50)
 					} else {
 						vpnConn = _vpnConn
 						udwLog.Log("[mpy2nwx1qck] tun read use new vpn conn")
@@ -94,19 +97,19 @@ func (c *Client) Run(req RunReq) {
 	go func() {
 		vpnPacket := &tachyonVpnProtocol.VpnPacket{}
 		buf := udwBytes.NewBufWriter(nil)
-		c.vpnConnLock.Lock()
+		c.connLock.Lock()
 		vpnConn := c.vpnConn
-		c.vpnConnLock.Unlock()
+		c.connLock.Unlock()
 		for {
 			buf.Reset()
 			for {
 				err := udwBinary.ReadByteSliceWithUint32LenToBufW(vpnConn, buf)
 				if err != nil {
-					c.vpnConnLock.Lock()
+					c.connLock.Lock()
 					_vpnConn := c.vpnConn
-					c.vpnConnLock.Unlock()
+					c.connLock.Unlock()
 					if vpnConn == _vpnConn {
-						time.Sleep(time.Millisecond*50)
+						time.Sleep(time.Millisecond * 50)
 					} else {
 						vpnConn = _vpnConn
 						udwLog.Log("[zdb1mbq1v1kxh] vpn conn read use new vpn conn")

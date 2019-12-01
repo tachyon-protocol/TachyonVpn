@@ -22,7 +22,7 @@ func main() {
 			PkgPath:       req.PkgPath,
 			TargetOs:      _os,
 			TargetCpuArch: arch,
-			EnableRace:    false,
+			EnableRace:    true,
 		})
 		pkgName := filepath.Base(req.PkgPath)
 		fmt.Println("build successfully", pkgName, _os, "/", arch)
