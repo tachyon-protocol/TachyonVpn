@@ -22,16 +22,6 @@ import (
 	"tyTls"
 )
 
-type vpnClient struct {
-	id          uint64
-	vpnIpOffset int
-	vpnIp       net.IP
-
-	locker        sync.Mutex
-	connToClient  net.Conn
-	connRelaySide net.Conn
-}
-
 type ServerRunReq struct {
 	UseRelay        bool
 	RelayServerIp   string
@@ -115,7 +105,7 @@ func (s *Server) Run(req ServerRunReq) {
 			vpnPacket.Data = ipPacket.SerializeToBuf()
 			bufW.Reset()
 			vpnPacket.Encode(bufW)
-			_ = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(client.connToClient, bufW.GetBytes()) //TODO
+			_ = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(client.getConnToClient(), bufW.GetBytes()) //TODO
 		}
 	}()
 
@@ -213,7 +203,7 @@ func (s *Server) clientTcpConnHandle(connToClient net.Conn) {
 				return
 			}
 			switch vpnPacket.Cmd {
-			case tachyonVpnProtocol.CmdPing:
+			case tachyonVpnProtocol.CmdPing, tachyonVpnProtocol.CmdKeepAlive:
 				bufW.Reset()
 				vpnPacket.ClientIdReceiver = vpnPacket.ClientIdSender
 				vpnPacket.ClientIdSender = s.clientId
@@ -226,10 +216,10 @@ func (s *Server) clientTcpConnHandle(connToClient net.Conn) {
 				}
 			case tachyonVpnProtocol.CmdHandshake:
 				if s.req.SelfTKey == "" {
-					s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
+					s.newOrUpdateClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
 					udwLog.Log("[4z734vc9pn] New client sent handshake ✔ server not require TKey", connToClient.RemoteAddr())
 				} else if len(s.req.SelfTKey) == len(string(vpnPacket.Data)) && s.req.SelfTKey == string(vpnPacket.Data) {
-					s.getOrNewClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
+					s.newOrUpdateClientFromDirectConn(vpnPacket.ClientIdSender, connToClient)
 					udwLog.Log("[agz7rzq1kr9] New client TKey matched ✔", connToClient.RemoteAddr())
 				} else {
 					_ = connToClient.Close()
@@ -271,7 +261,7 @@ func (s *Server) clientTcpConnHandle(connToClient net.Conn) {
 					udwLog.Log("[4tz1d2932g] forward failed nextPeer[", vpnPacket.ClientIdReceiver, "] == nil")
 					continue
 				}
-				err := udwBinary.WriteByteSliceWithUint32LenNoAllocV2(nextPeer.connToClient, bufW.GetBytes()) //TLS layer
+				err := udwBinary.WriteByteSliceWithUint32LenNoAllocV2(nextPeer.getConnToClient(), bufW.GetBytes()) //TLS layer
 				if err != nil {
 					udwLog.Log("[va1gz58zm3] forward failed", err)
 					continue

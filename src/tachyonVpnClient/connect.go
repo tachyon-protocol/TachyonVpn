@@ -145,11 +145,14 @@ func (c *Client) keepAliveThread() {
 		}
 		bufW := udwBytes.NewBufWriter(nil)
 		const timeout = time.Second * 2
+		time.Sleep(timeout / 2)
 		timer := time.NewTimer(timeout)
 		for {
+			bufW.Reset()
 			c.connLock.Lock()
 			directVpnConn := c.directVpnConn
 			c.connLock.Unlock()
+			vpnPacket.Data = vpnPacket.Data[:0]
 			vpnPacket.Encode(bufW)
 			bufW.WriteLittleEndUint64(i)
 			err := udwBinary.WriteByteSliceWithUint32LenNoAllocV2(directVpnConn, bufW.GetBytes())
@@ -185,6 +188,7 @@ func (c *Client) reconnect() {
 		err := c.connect()
 		if err != nil {
 			udwLog.Log("[ruu1n967nwm] RECONNECT Failed", err)
+			time.Sleep(time.Millisecond*500)
 			continue
 		}
 		udwLog.Log("[ruu1n967nwm] RECONNECT Succeed ✔")

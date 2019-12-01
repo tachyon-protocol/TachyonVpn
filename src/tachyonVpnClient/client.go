@@ -121,13 +121,13 @@ func (c *Client) Run(req RunReq) {
 			}
 			err = vpnPacket.Decode(buf.GetBytes())
 			udwErr.PanicIfError(err)
-			ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
-			if errMsg != "" {
-				udwLog.Log("[zdy1mx9y3h]", errMsg)
-				continue
-			}
 			switch vpnPacket.Cmd {
 			case tachyonVpnProtocol.CmdData:
+				ipPacket, errMsg := udwIpPacket.NewIpv4PacketFromBuf(vpnPacket.Data)
+				if errMsg != "" {
+					udwLog.Log("[zdy1mx9y3h]", errMsg)
+					continue
+				}
 				_, err = tun.Write(ipPacket.SerializeToBuf())
 				if err != nil {
 					udwLog.Log("[wmw12fyr9e] TUN Write error", err)
@@ -135,6 +135,8 @@ func (c *Client) Run(req RunReq) {
 			case tachyonVpnProtocol.CmdKeepAlive:
 				i := binary.LittleEndian.Uint64(vpnPacket.Data)
 				c.keepAliveChan <- i
+			default:
+				udwLog.Log("[h67hrf4kda] unexpect cmd", vpnPacket.Cmd)
 			}
 		}
 	}()

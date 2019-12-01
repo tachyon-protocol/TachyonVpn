@@ -8,9 +8,27 @@ import (
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
 	"net"
+	"sync"
 	"tachyonVpnProtocol"
 	"tlsPacketDebugger"
 )
+
+type vpnClient struct {
+	id          uint64
+	vpnIpOffset int
+	vpnIp       net.IP
+
+	connLock      sync.Mutex
+	connToClient  net.Conn
+	connRelaySide net.Conn
+}
+
+func (vc *vpnClient) getConnToClient() net.Conn {
+	vc.connLock.Lock()
+	conn := vc.connToClient
+	vc.connLock.Unlock()
+	return conn
+}
 
 func (s *Server) getClient(clientId uint64) *vpnClient {
 	s.locker.Lock()
@@ -22,15 +40,18 @@ func (s *Server) getClient(clientId uint64) *vpnClient {
 	return client
 }
 
-func (s *Server) getOrNewClientFromDirectConn(clientId uint64, connToClient net.Conn) *vpnClient {
+func (s *Server) newOrUpdateClientFromDirectConn(clientId uint64, connToClient net.Conn) {
 	s.locker.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
 	}
 	client := s.clientMap[clientId]
 	if client != nil {
+		client.connLock.Lock()
+		client.connToClient = connToClient //reconnect
+		client.connLock.Unlock()
 		s.locker.Unlock()
-		return client
+		return
 	}
 	client = &vpnClient{
 		id:           clientId,
@@ -42,7 +63,7 @@ func (s *Server) getOrNewClientFromDirectConn(clientId uint64, connToClient net.
 	if err != nil {
 		panic("[ub4fm53v26] " + err.Error())
 	}
-	return client
+	return
 }
 
 func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn) *vpnClient {
@@ -63,14 +84,14 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 		Certificates: []tls.Certificate{ //TODO optimize allocate
 			*udwTlsSelfSignCertV2.GetTlsCertificate(),
 		},
-		NextProtos:   []string{"http/1.1"},
+		NextProtos: []string{"http/1.1"},
 		MinVersion: tls.VersionTLS12,
 	})
 	client.connToClient = right
 	client.connRelaySide = left
 	s.clientMap[client.id] = client
 	err := s.clientAllocateVpnIp_NoLock(client)
-	go s.clientTcpConnHandle(client.connToClient)
+	go s.clientTcpConnHandle(client.getConnToClient())
 	s.locker.Unlock()
 	if err != nil {
 		panic("[ub4fm53v26] " + err.Error())
