@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"errors"
+//	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwConsole"
@@ -55,9 +56,9 @@ func (c *Client) Run(req RunReq) {
 	}
 	tun, err := createTun(req.ServerIp)
 	udwErr.PanicIfError(err)
-	err = c.connect()
+	//err = c.connect()
+	c.reconnect()
 	c.keepAliveThread()
-	udwErr.PanicIfError(err)
 	go func() {
 		vpnPacket := &tachyonVpnProtocol.VpnPacket{
 			Cmd:              tachyonVpnProtocol.CmdData,

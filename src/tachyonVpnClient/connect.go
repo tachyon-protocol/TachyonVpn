@@ -31,6 +31,7 @@ func (c *Client) connect() error {
 	handshakeVpnPacket.Encode(handshakeBuf)
 	err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(vpnConn, handshakeBuf.GetBytes())
 	if err != nil {
+		_ = vpnConn.Close()
 		return errors.New("[52y73b9e89] " + err.Error())
 	}
 	c.connLock.Lock()
@@ -40,7 +41,7 @@ func (c *Client) connect() error {
 	if c.req.IsRelay {
 		serverType = "RELAY"
 		var (
-			connRelaySide, plain = tachyonVpnProtocol.NewInternalConnectionDual()
+			connRelaySide, plain = tachyonVpnProtocol.NewInternalConnectionDual(nil, nil)
 			relayConn            = vpnConn
 		)
 		vpnConn = tls.Client(plain, newInsecureClientTlsConfig())
@@ -124,6 +125,7 @@ func (c *Client) connect() error {
 		handshakeVpnPacket.Encode(handshakeBuf)
 		err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(vpnConn, handshakeBuf.GetBytes())
 		if err != nil {
+			_ = vpnConn.Close()
 			return errors.New("[q3nwv1ebx1cd] " + err.Error())
 		}
 		udwLog.Log("sent handshake to ExitServer ✔")
@@ -180,8 +182,12 @@ func (c *Client) keepAliveThread() {
 
 func (c *Client) reconnect() {
 	c.connLock.Lock()
-	_ = c.vpnConn.Close()
-	_ = c.directVpnConn.Close()
+	if c.vpnConn != nil {
+		_ = c.vpnConn.Close()
+	}
+	if c.directVpnConn != nil {
+		_ = c.directVpnConn.Close()
+	}
 	c.connLock.Unlock()
 	for {
 		udwLog.Log("[ruu1n967nwm] RECONNECT...")

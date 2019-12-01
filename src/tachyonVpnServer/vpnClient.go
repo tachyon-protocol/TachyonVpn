@@ -79,7 +79,11 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	client = &vpnClient{
 		id: clientId,
 	}
-	left, right := tachyonVpnProtocol.NewInternalConnectionDual()
+	left, right := tachyonVpnProtocol.NewInternalConnectionDual(func() {
+		s.locker.Lock()
+		delete(s.clientMap, clientId)
+		s.locker.Unlock()
+	}, nil)
 	right = tls.Server(right, &tls.Config{
 		Certificates: []tls.Certificate{ //TODO optimize allocate
 			*udwTlsSelfSignCertV2.GetTlsCertificate(),

@@ -26,7 +26,7 @@ func main() {
 			if !debugInternalConnection {
 				_conn = conn
 			} else {
-				rBwA, rAwB := tachyonVpnProtocol.NewInternalConnectionDual()
+				rBwA, rAwB := tachyonVpnProtocol.NewInternalConnectionDual(nil, nil)
 				_conn = rAwB
 				go func() {
 					buf := make([]byte, 10<<20)
