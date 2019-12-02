@@ -26,6 +26,7 @@ type ServerRunReq struct {
 	UseRelay        bool
 	RelayServerIp   string
 	RelayServerTKey string
+	RelayServerChk string
 
 	SelfTKey string
 }

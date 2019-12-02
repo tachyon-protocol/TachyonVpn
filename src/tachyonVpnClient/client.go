@@ -30,6 +30,8 @@ type RunReq struct {
 	IsRelay            bool
 	ExitServerClientId uint64 //required when IsRelay is true
 	ExitServerTKey     string //required when IsRelay is true
+
+	ServerChk string // if it is "", it will use InsecureSkipVerify
 }
 
 type Client struct {
@@ -40,6 +42,7 @@ type Client struct {
 	connLock             sync.Mutex
 	directVpnConn        net.Conn
 	vpnConn              net.Conn
+	tlsConfig *tls.Config
 }
 
 func (c *Client) Run(req RunReq) {
@@ -56,6 +59,15 @@ func (c *Client) Run(req RunReq) {
 	tun, err := createTun(req.ServerIp)
 	udwErr.PanicIfError(err)
 	//err = c.connect()
+	if req.ServerChk==""{
+		c.tlsConfig = newInsecureClientTlsConfig()
+	}else{
+		var errMsg string
+		c.tlsConfig,errMsg = tyTls.NewClientTlsConfigWithChk(tyTls.NewClientTlsConfigWithChkReq{
+			ServerChk: req.ServerChk,
+		})
+		udwErr.PanicIfErrorMsg(errMsg)
+	}
 	c.reconnect()
 	c.keepAliveThread()
 	go func() {
