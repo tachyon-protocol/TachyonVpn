@@ -11,14 +11,11 @@ import (
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
-	"github.com/tachyon-protocol/udw/udwRand"
 	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
-	"io"
 	"net"
 	"strconv"
 	"sync"
 	"tachyonVpnProtocol"
-	"time"
 	"tyTls"
 )
 
@@ -31,12 +28,15 @@ type ServerRunReq struct {
 }
 
 type Server struct {
-	clientId       uint64
-	locker         sync.Mutex
+	clientId               uint64
+	tun                    *udwTapTun.TunTapObj
+	relayConnKeepAliveChan chan uint64
+
+	lock           sync.Mutex
 	clientMap      map[uint64]*vpnClient
 	vpnIpList      [maxCountVpnIp]*vpnClient
 	nextVpnIpIndex int
-	tun            *udwTapTun.TunTapObj
+	relayConn      net.Conn
 
 	req ServerRunReq
 }
@@ -111,76 +111,36 @@ func (s *Server) Run(req ServerRunReq) {
 
 	//two methods to accept new vpn conn
 	if req.UseRelay {
-		relayConn, err := net.Dial("tcp", req.RelayServerIp+":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
+		err := s.connectToRelay()
 		udwErr.PanicIfError(err)
-		fmt.Println("Server connected to relay server[", req.RelayServerIp, "] ✔")
-		relayConn = tls.Client(relayConn, &tls.Config{
-			ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
-			InsecureSkipVerify: true,
-			NextProtos:         []string{"http/1.1", "h2"},
-			MinVersion:         tls.VersionTLS12,
-		})
-		var (
-			vpnPacket = &tachyonVpnProtocol.VpnPacket{
-				Cmd:            tachyonVpnProtocol.CmdHandshake,
-				ClientIdSender: s.clientId,
-				Data:           []byte(req.RelayServerTKey),
-			}
-			buf = udwBytes.NewBufWriter(nil)
-		)
-		vpnPacket.Encode(buf)
-		err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(relayConn, buf.GetBytes())
-		if err != nil {
-			panic("[tcp3kt1mqs] " + err.Error())
-		}
-		vpnPacket.Reset()
-		go func() {
-			for {
-				buf.Reset()
-				err := udwBinary.ReadByteSliceWithUint32LenToBufW(relayConn, buf)
-				if err == io.EOF {
-					udwLog.Log("[e9z4rvv1u2x] EOF")
-					time.Sleep(time.Second * 3) //TODO for debug
-					continue
-				}
-				udwErr.PanicIfError(err) //TODO
-				err = vpnPacket.Decode(buf.GetBytes())
-				udwErr.PanicIfError(err) //TODO
-				if vpnPacket.Cmd == tachyonVpnProtocol.CmdForward {
-					if vpnPacket.ClientIdReceiver == s.clientId {
-						//TODO Server will use vpnPacket.ClientIdFrom to identify different TLS connections
-						//TODO vpnPacket.ClientIdFrom should not be real Client's Id
-						//TODO Relay Server could replace real Client's Id with fake one
-						client := s.getOrNewClientFromRelayConn(vpnPacket.ClientIdSender, relayConn)
-						_, err := client.connRelaySide.Write(vpnPacket.Data) //TLS
-						if err != nil {
-							udwLog.Log("[dy11zv1eg6]", err)
-						}
-					} else {
-						fmt.Println("[vw9tm9rv2s] not forward to self", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
-					}
-				} else {
-					fmt.Println("[d39e7d859m] Unexpected Cmd[", vpnPacket.Cmd, "]")
-				}
-			}
-		}()
+		s.relayConnKeepAliveThread()
 	} else {
-		ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
-		udwErr.PanicIfError(err)
-		go func() {
-			for {
-				conn, err := ln.Accept()
-				udwErr.PanicIfError(err)
-				conn = tls.Server(conn, &tls.Config{
-					Certificates: []tls.Certificate{ //TODO optimize allocate
-						*udwTlsSelfSignCertV2.GetTlsCertificate(),
-					},
-					NextProtos: []string{"http/1.1"},
-					MinVersion: tls.VersionTLS12,
-				})
-				go s.clientTcpConnHandle(conn)
-			}
-		}()
+		udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort), func(conn net.Conn) {
+			conn = tls.Server(conn, &tls.Config{
+				Certificates: []tls.Certificate{ //TODO optimize allocate
+					*udwTlsSelfSignCertV2.GetTlsCertificate(),
+				},
+				NextProtos: []string{"http/1.1"},
+				MinVersion: tls.VersionTLS12,
+			})
+			s.clientTcpConnHandle(conn)
+		})
+		//ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
+		//udwErr.PanicIfError(err)
+		//go func() {
+		//	for {
+		//		conn, err := ln.Accept()
+		//		udwErr.PanicIfError(err)
+		//		conn = tls.Server(conn, &tls.Config{
+		//			Certificates: []tls.Certificate{ //TODO optimize allocate
+		//				*udwTlsSelfSignCertV2.GetTlsCertificate(),
+		//			},
+		//			NextProtos: []string{"http/1.1"},
+		//			MinVersion: tls.VersionTLS12,
+		//		})
+		//		go s.clientTcpConnHandle(conn)
+		//	}
+		//}()
 	}
 	udwConsole.WaitForExit()
 }

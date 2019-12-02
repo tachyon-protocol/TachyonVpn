@@ -80,8 +80,7 @@ func (c *Client) connect() error {
 						return
 					}
 				case tachyonVpnProtocol.CmdKeepAlive:
-					i := binary.LittleEndian.Uint64(vpnPacket.Data)
-					c.keepAliveChan <- i
+					c.keepAliveChan <- binary.LittleEndian.Uint64(vpnPacket.Data)
 				default:
 					fmt.Println("[a3t7vfh1ms] Unexpected Cmd[", vpnPacket.Cmd, "]")
 				}

@@ -31,17 +31,17 @@ func (vc *vpnClient) getConnToClient() net.Conn {
 }
 
 func (s *Server) getClient(clientId uint64) *vpnClient {
-	s.locker.Lock()
+	s.lock.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
 	}
 	client := s.clientMap[clientId]
-	s.locker.Unlock()
+	s.lock.Unlock()
 	return client
 }
 
 func (s *Server) newOrUpdateClientFromDirectConn(clientId uint64, connToClient net.Conn) {
-	s.locker.Lock()
+	s.lock.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
 	}
@@ -50,7 +50,7 @@ func (s *Server) newOrUpdateClientFromDirectConn(clientId uint64, connToClient n
 		client.connLock.Lock()
 		client.connToClient = connToClient //reconnect
 		client.connLock.Unlock()
-		s.locker.Unlock()
+		s.lock.Unlock()
 		return
 	}
 	client = &vpnClient{
@@ -59,30 +59,30 @@ func (s *Server) newOrUpdateClientFromDirectConn(clientId uint64, connToClient n
 	}
 	s.clientMap[client.id] = client
 	err := s.clientAllocateVpnIp_NoLock(client)
-	s.locker.Unlock()
+	s.lock.Unlock()
 	if err != nil {
 		panic("[ub4fm53v26] " + err.Error())
 	}
 	return
 }
 
-func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn) *vpnClient {
-	s.locker.Lock()
+func (s *Server) getOrNewClientFromRelayConn(clientId uint64) *vpnClient {
+	s.lock.Lock()
 	if s.clientMap == nil {
 		s.clientMap = map[uint64]*vpnClient{}
 	}
 	client := s.clientMap[clientId]
 	if client != nil {
-		s.locker.Unlock()
+		s.lock.Unlock()
 		return client
 	}
 	client = &vpnClient{
 		id: clientId,
 	}
 	left, right := tachyonVpnProtocol.NewInternalConnectionDual(func() {
-		s.locker.Lock()
+		s.lock.Lock()
 		delete(s.clientMap, clientId)
-		s.locker.Unlock()
+		s.lock.Unlock()
 	}, nil)
 	right = tls.Server(right, &tls.Config{
 		Certificates: []tls.Certificate{ //TODO optimize allocate
@@ -96,7 +96,7 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 	s.clientMap[client.id] = client
 	err := s.clientAllocateVpnIp_NoLock(client)
 	go s.clientTcpConnHandle(client.getConnToClient())
-	s.locker.Unlock()
+	s.lock.Unlock()
 	if err != nil {
 		panic("[ub4fm53v26] " + err.Error())
 	}
@@ -124,7 +124,7 @@ func (s *Server) getOrNewClientFromRelayConn(clientId uint64, relayConn net.Conn
 			vpnPacket.Data = buf[:n]
 			bufW.Reset()
 			vpnPacket.Encode(bufW)
-			err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(relayConn, bufW.GetBytes())
+			err = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(s.getRelayConn(), bufW.GetBytes()) //TODO lock
 			if err != nil {
 				udwLog.Log("[ar1nr4wf3s]", err)
 				continue
