@@ -7,15 +7,8 @@ import (
 )
 
 func main() {
-	udwConsole.MustRunCommandLineFromFuncV2(func(req struct{
-		Ip string
-		Count int
-	}) {
-		err := tachyonVpnClient.Ping(tachyonVpnClient.PingReq{
-			Ip:       req.Ip,
-			Count:    req.Count,
-			DebugLog: true,
-		})
+	udwConsole.MustRunCommandLineFromFuncV2(func(req tachyonVpnClient.PingReq) {
+		err := tachyonVpnClient.Ping(req)
 		udwErr.PanicIfError(err)
 	})
 }
