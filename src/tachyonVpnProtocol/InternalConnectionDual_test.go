@@ -46,7 +46,7 @@ func TestInternalConnectionSingle(t *testing.T) {
 }
 
 func TestNewInternalConnectionDualTls(t *testing.T) {
-	left, right := NewInternalConnectionDual()
+	left, right := NewInternalConnectionDual(nil, nil)
 	client := tls.Client(left, &tls.Config{
 		InsecureSkipVerify: true,
 	})
@@ -84,7 +84,7 @@ func TestNewInternalConnectionDualTls(t *testing.T) {
 }
 
 func TestNewInternalConnectionDualDoubleLayers(t *testing.T) {
-	client, server := NewInternalConnectionDual()
+	client, server := NewInternalConnectionDual(nil, nil)
 	client = tls.Client(client, &tls.Config{
 		ServerName:         udwRand.MustCryptoRandToReadableAlpha(5) + ".com",
 		InsecureSkipVerify: true,

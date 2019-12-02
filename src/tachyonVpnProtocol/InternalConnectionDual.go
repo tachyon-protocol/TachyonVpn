@@ -13,7 +13,7 @@ import (
 
 const DebugInternalConnection = false
 
-func NewInternalConnectionDual() (rBwA net.Conn, rAwB net.Conn) {
+func NewInternalConnectionDual(closeFnLeft func(), closeFnRight func()) (rBwA net.Conn, rAwB net.Conn) {
 	a := &internalConnectionSingle{
 		pipe:      udwChan.MakeChanBytes(1 << 10),
 		debugName: "A",
@@ -25,15 +25,18 @@ func NewInternalConnectionDual() (rBwA net.Conn, rAwB net.Conn) {
 	return &internalConnectionPeer{
 			readConn:  b,
 			writeConn: a,
+			closeFn:   closeFnLeft,
 		}, &internalConnectionPeer{
 			readConn:  a,
 			writeConn: b,
+			closeFn:   closeFnRight,
 		}
 }
 
 type internalConnectionPeer struct {
 	readConn  *internalConnectionSingle
 	writeConn *internalConnectionSingle
+	closeFn   func()
 }
 
 func (conn *internalConnectionPeer) LocalAddr() net.Addr {
@@ -75,6 +78,9 @@ func (conn *internalConnectionPeer) Write(buf []byte) (n int, err error) {
 func (conn *internalConnectionPeer) Close() (err error) {
 	_ = conn.readConn.Close()
 	_ = conn.writeConn.Close()
+	if conn.closeFn != nil {
+		conn.closeFn()
+	}
 	return nil
 }
 

@@ -24,7 +24,7 @@ type PingReq struct {
 func Ping (req PingReq) error {
 	var tlsConfig *tls.Config
 	if req.ServerChk==""{
-		tlsConfig = newInsecureClientTlsConifg()
+		tlsConfig = newInsecureClientTlsConfig()
 	}else{
 		var errMsg string
 		tlsConfig,errMsg = tyTls.NewClientTlsConfigWithChk(tyTls.NewClientTlsConfigWithChkReq{

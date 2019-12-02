@@ -6,5 +6,6 @@ import (
 )
 
 func main() {
-	udwConsole.MustRunCommandLineFromFuncV2(tachyonVpnClient.ClientRun)
+	client := tachyonVpnClient.Client{}
+	udwConsole.MustRunCommandLineFromFuncV2(client.Run)
 }
