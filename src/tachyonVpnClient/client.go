@@ -4,7 +4,6 @@ import (
 	"crypto/tls"
 	"encoding/binary"
 	"errors"
-//	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwConsole"
@@ -45,7 +44,7 @@ type Client struct {
 
 func (c *Client) Run(req RunReq) {
 	c.req = req
-	tyTls.AllowTlsVersion13()
+	tyTls.EnableTlsVersion13()
 	c.clientId = tachyonVpnProtocol.GetClientId()
 	c.clientIdToExitServer = c.clientId
 	if req.IsRelay {
