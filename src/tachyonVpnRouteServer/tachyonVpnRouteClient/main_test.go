@@ -1,4 +1,4 @@
-package tachyonVpnInfoClient
+package tachyonVpnRouteClient
 
 import (
 	"testing"
