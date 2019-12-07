@@ -60,9 +60,9 @@ func (s *Server) getClientByVpnIp(vpnIp net.IP) *vpnClient {
 		return nil
 	}
 	offset = offset % 65536
-	s.locker.Lock()
+	s.lock.Lock()
 	client := s.vpnIpList[offset]
-	s.locker.Unlock()
+	s.lock.Unlock()
 	if client == nil {
 		return nil
 	}
