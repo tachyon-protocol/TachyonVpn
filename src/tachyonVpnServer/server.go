@@ -20,6 +20,10 @@ import (
 	"tachyonVpnProtocol"
 	"time"
 	"tyTls"
+	"github.com/tachyon-protocol/udw/udwIpToCountryV2"
+	"github.com/tachyon-protocol/udw/udwStrings"
+	"strings"
+	"github.com/tachyon-protocol/udw/udwClose"
 )
 
 type ServerRunReq struct {
@@ -29,6 +33,7 @@ type ServerRunReq struct {
 	RelayServerChk string
 
 	SelfTKey string
+	BlockCountryCodeListS string // empty string do not block any country code, look like "KP,IR,RU"
 }
 
 type Server struct {
@@ -38,8 +43,9 @@ type Server struct {
 	vpnIpList      [maxCountVpnIp]*vpnClient
 	nextVpnIpIndex int
 	tun            *udwTapTun.TunTapObj
-
 	req ServerRunReq
+	blockCountryCodeList []string
+	closer udwClose.Closer
 }
 
 func (s *Server) Run(req ServerRunReq) {
@@ -66,7 +72,9 @@ func (s *Server) Run(req ServerRunReq) {
 	udwErr.PanicIfErrorMsg(errMsg)
 	fmt.Println("ServerChk: "+tyTls.MustHashChkFromTlsCert(tlsServerCert))
 	fmt.Println("Server started ✔")
-
+	if s.req.BlockCountryCodeListS!=""{
+		s.blockCountryCodeList = strings.Split(s.req.BlockCountryCodeListS,",")
+	}
 
 	//read thread from TUN
 	go func() {
@@ -168,18 +176,32 @@ func (s *Server) Run(req ServerRunReq) {
 			}
 		}()
 	} else {
-		ln, err := net.Listen("tcp", ":"+strconv.Itoa(tachyonVpnProtocol.VpnPort))
-		udwErr.PanicIfError(err)
-		go func() {
-			for {
-				conn, err := ln.Accept()
-				udwErr.PanicIfError(err)
-				conn = tls.Server(conn, sTlsConfig)
-				go s.clientTcpConnHandle(conn)
+		closerFn:=udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort),func(conn net.Conn){
+			if s.clientConnFilter(conn)==false{
+				conn.Close()
+				return
 			}
-		}()
+			conn = tls.Server(conn, sTlsConfig)
+			s.clientTcpConnHandle(conn)
+		})
+		s.closer.AddOnClose(closerFn)
 	}
 	udwConsole.WaitForExit()
+	s.closer.Close()
+}
+
+// return true as pass
+func (s *Server) clientConnFilter(connToClient net.Conn) bool{
+	if len(s.blockCountryCodeList)>0{
+		ip,_,errMsg:=udwNet.GetIpAndPortFromNetAddr(connToClient.RemoteAddr())
+		if errMsg==""{
+			cc:=udwIpToCountryV2.MustGetCountryIsoCode(ip)
+			if cc!="" && udwStrings.IsInSlice(s.blockCountryCodeList,cc){
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (s *Server) clientTcpConnHandle(connToClient net.Conn) {
