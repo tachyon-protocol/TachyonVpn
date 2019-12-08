@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/tachyon-protocol/udw/udwBinary"
 	"github.com/tachyon-protocol/udw/udwBytes"
+	"github.com/tachyon-protocol/udw/udwClose"
 	"github.com/tachyon-protocol/udw/udwConsole"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwIpPacket"
@@ -44,7 +45,7 @@ type Server struct {
 func (s *Server) Run(req ServerRunReq) {
 	tyTls.EnableTlsVersion13()
 	s.req = req
-	s.clientId = tachyonVpnProtocol.GetClientId() //TODO fixed clientId
+	s.clientId = tachyonVpnProtocol.GetClientId(0)
 	fmt.Println("ClientId:", s.clientId)
 	tun, err := udwTapTun.NewTun("")
 	udwErr.PanicIfError(err)
@@ -69,6 +70,10 @@ func (s *Server) Run(req ServerRunReq) {
 	go func() {
 		bufR := make([]byte, 16*1024)
 		bufW := udwBytes.NewBufWriter(nil)
+		vpnPacket := &tachyonVpnProtocol.VpnPacket{
+			ClientIdSender:   s.clientId,
+			Cmd:              tachyonVpnProtocol.CmdData,
+		}
 		for {
 			n, err := tun.Read(bufR)
 			if err != nil {
@@ -91,11 +96,12 @@ func (s *Server) Run(req ServerRunReq) {
 				udwLog.Log("[r1tp9rk84m] TUN Read no such client", ipPacket.GetSrcAddrString())
 				continue
 			}
-			vpnPacket := &tachyonVpnProtocol.VpnPacket{
-				ClientIdSender:   s.clientId,
-				ClientIdReceiver: client.id,
-				Cmd:              tachyonVpnProtocol.CmdData,
-			}
+			//vpnPacket := &tachyonVpnProtocol.VpnPacket{
+			//	ClientIdSender:   s.clientId,
+			//	ClientIdReceiver: client.id,
+			//	Cmd:              tachyonVpnProtocol.CmdData,
+			//}
+			vpnPacket.ClientIdReceiver = client.id
 			if tachyonVpnProtocol.Debug {
 				fmt.Println("read from tun, write to client", vpnPacket.ClientIdSender, "->", vpnPacket.ClientIdReceiver)
 			}
@@ -108,18 +114,21 @@ func (s *Server) Run(req ServerRunReq) {
 			_ = udwBinary.WriteByteSliceWithUint32LenNoAllocV2(client.getConnToClient(), bufW.GetBytes()) //TODO
 		}
 	}()
+	closer := udwClose.NewCloser()
 	//two methods to accept new vpn conn
 	if req.UseRelay {
 		err := s.connectToRelay()
 		udwErr.PanicIfError(err)
 		s.relayConnKeepAliveThread()
 	} else {
-		udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort), func(conn net.Conn) {
+		_close := udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort), func(conn net.Conn) {
 			conn = tls.Server(conn, sTlsConfig)
 			s.clientTcpConnHandle(conn)
 		})
+		closer.AddOnClose(_close)
 	}
 	udwConsole.WaitForExit()
+	closer.Close()
 }
 
 func (s *Server) clientTcpConnHandle(connToClient net.Conn) {

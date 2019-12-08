@@ -45,10 +45,10 @@ type Client struct {
 func (c *Client) Run(req RunReq) {
 	c.req = req
 	tyTls.EnableTlsVersion13()
-	c.clientId = tachyonVpnProtocol.GetClientId()
+	c.clientId = tachyonVpnProtocol.GetClientId(0)
 	c.clientIdToExitServer = c.clientId
 	if req.IsRelay {
-		c.clientIdToExitServer = tachyonVpnProtocol.GetClientId()
+		c.clientIdToExitServer = tachyonVpnProtocol.GetClientId(1)
 		if req.ExitServerClientId == 0 {
 			panic("ExitServerClientId can be empty when use relay mode")
 		}
