@@ -15,11 +15,11 @@ const DebugInternalConnection = false
 
 func NewInternalConnectionDual(closeFnLeft func(), closeFnRight func()) (rBwA net.Conn, rAwB net.Conn) {
 	a := &internalConnectionSingle{
-		pipe:      udwChan.MakeChan(1 << 10),
+		pipe:      udwChan.MakeChan(256),
 		debugName: "A",
 	}
 	b := &internalConnectionSingle{
-		pipe:      udwChan.MakeChan(1 << 10),
+		pipe:      udwChan.MakeChan(256),
 		debugName: "B",
 	}
 	return &internalConnectionPeer{
@@ -55,15 +55,15 @@ func (conn *internalConnectionPeer) RemoteAddr() net.Addr {
 	}
 }
 
-func (conn *internalConnectionPeer) SetDeadline(t time.Time) error {
+func (conn *internalConnectionPeer) SetDeadline(_ time.Time) error {
 	return nil
 }
 
-func (conn *internalConnectionPeer) SetReadDeadline(t time.Time) error {
+func (conn *internalConnectionPeer) SetReadDeadline(_ time.Time) error {
 	return nil
 }
 
-func (conn *internalConnectionPeer) SetWriteDeadline(t time.Time) error {
+func (conn *internalConnectionPeer) SetWriteDeadline(_ time.Time) error {
 	return nil
 }
 
@@ -87,10 +87,10 @@ func (conn *internalConnectionPeer) Close() (err error) {
 type internalConnectionSingle struct {
 	debugName string
 	pipe      *udwChan.Chan
+	bufPool   udwBytes.BufWriterPool
 	lockerR   sync.Mutex
 	bufR      *udwBytes.BufWriter
 	readIndex int
-	bufPool   udwBytes.BufWriterPool
 }
 
 func (conn *internalConnectionSingle) Read(buf []byte) (n int, err error) {
@@ -120,45 +120,9 @@ func (conn *internalConnectionSingle) Read(buf []byte) (n int, err error) {
 }
 
 func (conn *internalConnectionSingle) Write(buf []byte) (n int, err error) {
-	//const size = 8000
-	//start := 0
-	//for {
-	//	if start >= len(buf) {
-	//		return len(buf), nil
-	//	}
-	//	end := start + size
-	//	if len(buf) < end {
-	//		end = len(buf)
-	//	}
-	//	time.Sleep(time.Millisecond )
-	//	isClose := conn.pipe.Send(buf[start:end])
-	//	start += size
-	//	if isClose {
-	//		return 0, io.ErrClosedPipe
-	//	}
-	//}
-
 	if DebugInternalConnection {
 		tlsPacketDebugger.Dump(conn.debugName, buf)
 	}
-
-	//const bufSize = 100
-	//conn.lockerW.Lock()
-	//if conn.bufW == nil {
-	//	conn.bufW = udwBytes.NewBufWriter(nil)
-	//}
-	//conn.bufW.Write_(buf)
-	//if conn.bufW.GetLen() < bufSize {
-	//	conn.lockerW.Unlock()
-	//	return len(buf), nil
-	//}
-	//isClose := conn.pipe.Send(conn.bufW.GetBytes())
-	//conn.bufW.Reset()
-	//conn.lockerW.Unlock()
-	//if isClose {
-	//	return 0, io.ErrClosedPipe
-	//}
-	//return len(buf), nil
 	_bufW := conn.bufPool.GetAndCloneFromByteSlice(buf)
 	isClose := conn.pipe.Send(_bufW)
 	if isClose {
