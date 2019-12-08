@@ -15,7 +15,7 @@ import (
 
 func TestInternalConnectionSingle(t *testing.T) {
 	conn := &internalConnectionSingle{
-		pipe: udwChan.MakeChanBytes(0),
+		pipe: udwChan.MakeChan(0),
 		bufR: udwBytes.NewBufWriter(nil),
 	}
 	const (

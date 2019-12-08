@@ -15,11 +15,11 @@ const DebugInternalConnection = false
 
 func NewInternalConnectionDual(closeFnLeft func(), closeFnRight func()) (rBwA net.Conn, rAwB net.Conn) {
 	a := &internalConnectionSingle{
-		pipe:      udwChan.MakeChanBytes(1 << 10),
+		pipe:      udwChan.MakeChan(1 << 10),
 		debugName: "A",
 	}
 	b := &internalConnectionSingle{
-		pipe:      udwChan.MakeChanBytes(1 << 10),
+		pipe:      udwChan.MakeChan(1 << 10),
 		debugName: "B",
 	}
 	return &internalConnectionPeer{
@@ -86,10 +86,11 @@ func (conn *internalConnectionPeer) Close() (err error) {
 
 type internalConnectionSingle struct {
 	debugName string
-	pipe      *udwChan.ChanBytes
+	pipe      *udwChan.Chan
 	lockerR   sync.Mutex
 	bufR      *udwBytes.BufWriter
 	readIndex int
+	bufPool   udwBytes.BufWriterPool
 }
 
 func (conn *internalConnectionSingle) Read(buf []byte) (n int, err error) {
@@ -99,19 +100,17 @@ func (conn *internalConnectionSingle) Read(buf []byte) (n int, err error) {
 	}
 	if conn.readIndex == conn.bufR.GetLen() {
 		conn.bufR.Reset()
-		data, isClose := conn.pipe.Receive()
+		_bufI, isClose := conn.pipe.Receive()
 		if isClose {
 			conn.lockerR.Unlock()
 			return 0, io.ErrClosedPipe
 		}
-		if DebugInternalConnection {
-			fmt.Println(conn.debugName, "receive", len(data))
-		}
-		conn.bufR.Write_(data)
+		_buf := _bufI.(*udwBytes.BufWriter)
+		conn.bufR.Write_(_buf.GetBytes())
+		conn.bufPool.Put(_buf)
 		conn.readIndex = 0
 	}
-	_buf := conn.bufR.GetBytes()
-	n = copy(buf, _buf[conn.readIndex:])
+	n = copy(buf, conn.bufR.GetBytes()[conn.readIndex:])
 	if DebugInternalConnection {
 		fmt.Println(conn.debugName, "read", n)
 	}
@@ -160,11 +159,8 @@ func (conn *internalConnectionSingle) Write(buf []byte) (n int, err error) {
 	//	return 0, io.ErrClosedPipe
 	//}
 	//return len(buf), nil
-
-	//TODO optimize memory allocate
-	_buf := make([]byte, len(buf))
-	copy(_buf, buf)
-	isClose := conn.pipe.Send(_buf)
+	_bufW := conn.bufPool.GetAndCloneFromByteSlice(buf)
+	isClose := conn.pipe.Send(_bufW)
 	if isClose {
 		return 0, io.ErrClosedPipe
 	}
