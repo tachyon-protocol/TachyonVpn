@@ -5,12 +5,16 @@ import (
 	"sync"
 	"net/http"
 	"net"
+	"github.com/tachyon-protocol/udw/udwConsole"
 )
 
-func ServerAsyncRun() func(){
+func RouteServerRunCmd() {
 	initDb()
 	initGcVpnNode()
 
+	closer:=Rpc_RunServer(":24587")
+	udwConsole.WaitForExit()
+	closer()
 	//s:=http.Server{
 	//	Addr: ":443",
 	//	Handler: http.HandlerFunc(serverHandler),

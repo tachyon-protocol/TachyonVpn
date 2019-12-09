@@ -21,6 +21,9 @@ import (
 	"tachyonVpnProtocol"
 	"time"
 	"tyTls"
+	"tachyonVpnRouteServer/tachyonVpnRouteClient"
+//	"github.com/tachyon-protocol/udw/udwClose"
+	"fmt"
 )
 
 type RunReq struct {
@@ -32,6 +35,7 @@ type RunReq struct {
 	ExitServerTKey     string //required when IsRelay is true
 
 	ServerChk string // if it is "", it will use InsecureSkipVerify
+	DisableUsePublicRouteServer bool
 }
 
 type Client struct {
@@ -50,21 +54,22 @@ func (c *Client) Run(req RunReq) {
 	tyTls.EnableTlsVersion13()
 	c.clientId = tachyonVpnProtocol.GetClientId()
 	c.clientIdToExitServer = c.clientId
-	if req.IsRelay {
+	if c.req.IsRelay {
 		c.clientIdToExitServer = tachyonVpnProtocol.GetClientId()
-		if req.ExitServerClientId == 0 {
+		if c.req.ExitServerClientId == 0 {
 			panic("ExitServerClientId can be empty when use relay mode")
 		}
 	}
-	tun, err := createTun(req.ServerIp)
+	c.tryUseRouteServer()
+	tun, err := createTun(c.req.ServerIp)
 	udwErr.PanicIfError(err)
 	//err = c.connect()
-	if req.ServerChk==""{
+	if c.req.ServerChk==""{
 		c.tlsConfig = newInsecureClientTlsConfig()
 	}else{
 		var errMsg string
 		c.tlsConfig,errMsg = tyTls.NewClientTlsConfigWithChk(tyTls.NewClientTlsConfigWithChkReq{
-			ServerChk: req.ServerChk,
+			ServerChk: c.req.ServerChk,
 		})
 		udwErr.PanicIfErrorMsg(errMsg)
 	}
@@ -74,7 +79,7 @@ func (c *Client) Run(req RunReq) {
 		vpnPacket := &tachyonVpnProtocol.VpnPacket{
 			Cmd:              tachyonVpnProtocol.CmdData,
 			ClientIdSender:   c.clientIdToExitServer,
-			ClientIdReceiver: req.ExitServerClientId,
+			ClientIdReceiver: c.req.ExitServerClientId,
 		}
 		buf := make([]byte, 16*1024)
 		bufW := udwBytes.NewBufWriter(nil)
@@ -210,5 +215,49 @@ func newInsecureClientTlsConfig() *tls.Config {
 		InsecureSkipVerify: true,
 		NextProtos:         []string{"http/1.1", "h2"},
 		MinVersion:         tls.VersionTLS12,
+	}
+}
+
+func (c *Client) tryUseRouteServer(){
+	if c.req.ServerIp==""{
+		if c.req.DisableUsePublicRouteServer{
+			panic("need config ServerIp")
+		}else{
+			fmt.Println("start mulit ping 1")
+			routeC:=tachyonVpnRouteClient.Rpc_NewClient(tachyonVpnProtocol.PublicRouteServerAddr)
+			list,rpcErr:=routeC.VpnNodeList()
+			if rpcErr!=nil{
+				panic(rpcErr.Error())
+			}
+			fmt.Println("start mulit ping 2")
+			locker :=sync.Mutex{}
+			var fastNode tachyonVpnRouteClient.VpnNode
+			wg:=sync.WaitGroup{}
+			for _,node:=range list{
+				node:=node
+				wg.Add(1)
+				go func(){
+					err:=Ping(PingReq{
+						Ip: node.Ip,
+						ServerChk: node.ServerChk,
+					})
+					if err==nil{
+						locker.Lock()
+						if fastNode.Ip==""{
+							fastNode = node
+						}
+						locker.Unlock()
+					}
+					wg.Done()
+				}()
+			}
+			wg.Wait()
+			if fastNode.Ip==""{
+				panic("all ping lost")
+			}
+			c.req.ServerIp = fastNode.Ip
+			c.req.ServerChk = fastNode.ServerChk
+			fmt.Println("ping to get ip ["+c.req.ServerIp+"]")
+		}
 	}
 }

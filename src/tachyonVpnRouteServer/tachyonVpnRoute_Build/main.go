@@ -7,10 +7,23 @@ import (
 func UdwBuild(){
 	udwRpc2Builder.Generate(udwRpc2Builder.GenerateReq{
 		RpcDefine:      getRpcService(),
+		FromObjName:    "serverRpcObj",
+		FromPkgPath:    "tachyonVpnRouteServer",
 		TargetPkgPath:  "tachyonVpnRouteServer",
 		Prefix:         "Rpc",
 		TargetFilePath: "src/tachyonVpnRouteServer/rpc.go",
 		GoFmt:          true,
+		DisableGenClient: true,
+	})
+	udwRpc2Builder.Generate(udwRpc2Builder.GenerateReq{
+		RpcDefine:      getRpcService(),
+		FromObjName:    "serverRpcObj",
+		FromPkgPath:    "tachyonVpnRouteServer",
+		TargetPkgPath:  "tachyonVpnRouteServer/tachyonVpnRouteClient",
+		Prefix:         "Rpc",
+		TargetFilePath: "src/tachyonVpnRouteServer/tachyonVpnRouteClient/rpc.go",
+		GoFmt:          true,
+		DisableGenServer: true,
 	})
 }
 

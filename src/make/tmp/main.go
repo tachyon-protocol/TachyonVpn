@@ -1,7 +1,17 @@
 package main
 
-import "github.com/tachyon-protocol/udw/udwRpc2/udwRpc2Tester"
+import (
+	"tachyonVpnRouteServer/tachyonVpnRouteClient"
+	"tachyonVpnProtocol"
+	"github.com/tachyon-protocol/udw/udwDebug"
+)
 
 func main(){
-	udwRpc2Tester.BuildAndTest()
+	//udwRpc2Tester.BuildAndTest()
+	routeC:=tachyonVpnRouteClient.Rpc_NewClient(tachyonVpnProtocol.PublicRouteServerAddr)
+	list,rpcErr:=routeC.VpnNodeList()
+	if rpcErr!=nil{
+		panic(rpcErr.Error())
+	}
+	udwDebug.Println(list)
 }

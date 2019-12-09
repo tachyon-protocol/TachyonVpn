@@ -21,6 +21,8 @@ import (
 	"github.com/tachyon-protocol/udw/udwStrings"
 	"strings"
 	"github.com/tachyon-protocol/udw/udwClose"
+	"tachyonVpnRouteServer/tachyonVpnRouteClient"
+	"time"
 )
 
 type ServerRunReq struct {
@@ -31,6 +33,7 @@ type ServerRunReq struct {
 
 	SelfTKey string
 	BlockCountryCodeListS string // empty string do not block any country code, look like "KP,IR,RU"
+	DisableRegisterRouteServer bool
 }
 
 type Server struct {
@@ -71,10 +74,28 @@ func (s *Server) Run(req ServerRunReq) {
 		ServerCert: *tlsServerCert,
 	})
 	udwErr.PanicIfErrorMsg(errMsg)
-	fmt.Println("ServerChk: "+tyTls.MustHashChkFromTlsCert(tlsServerCert))
+	serverChk:=tyTls.MustHashChkFromTlsCert(tlsServerCert)
+	fmt.Println("ServerChk: "+serverChk)
 	fmt.Println("Server started ✔")
 	if s.req.BlockCountryCodeListS!=""{
 		s.blockCountryCodeList = strings.Split(s.req.BlockCountryCodeListS,",")
+	}
+	if s.req.DisableRegisterRouteServer==false{
+		go func(){
+			c:=tachyonVpnRouteClient.Rpc_NewClient(tachyonVpnProtocol.PublicRouteServerAddr)
+			for{
+				err1,err2:=c.VpnNodeRegister(tachyonVpnRouteClient.VpnNode{
+					ServerChk:serverChk,
+				})
+				if err1!="" {
+					fmt.Println("4etcghekhj "+err1)
+				}
+				if err2!=nil{
+					fmt.Println("yew68bub3a "+err2.Error())
+				}
+				time.Sleep(time.Second*30)
+			}
+		}()
 	}
 
 	//read thread from TUN
