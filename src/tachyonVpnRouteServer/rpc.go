@@ -56,6 +56,18 @@ func Rpc_RunServer(addr string) (closer func()) {
 					if errMsg != "" {
 						return
 					}
+				case 3:
+					errMsg = ctx.GetReader().ReadArrayEnd()
+					if errMsg != "" {
+						return
+					}
+					s.Ping()
+					ctx.GetWriter().WriteString("")
+					ctx.GetWriter().WriteArrayEnd()
+					errMsg = ctx.GetWriter().Flush()
+					if errMsg != "" {
+						return
+					}
 				default:
 				}
 			})

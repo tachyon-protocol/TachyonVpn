@@ -71,6 +71,9 @@ func getRpcService() udwRpc2Builder.RpcService {
 					},
 				},
 			},
+			{
+				Name: "Ping",
+			},
 		},
 	}
 }

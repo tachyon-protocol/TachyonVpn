@@ -42,6 +42,8 @@ func (serverRpcObj) VpnNodeList() []tachyonVpnRouteClient.VpnNode{
 	return outList
 }
 
+func (serverRpcObj) Ping(){}
+
 func initGcVpnNode(){
 	go func(){
 		for{

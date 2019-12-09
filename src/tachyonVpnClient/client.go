@@ -223,13 +223,11 @@ func (c *Client) tryUseRouteServer(){
 		if c.req.DisableUsePublicRouteServer{
 			panic("need config ServerIp")
 		}else{
-			fmt.Println("start mulit ping 1")
 			routeC:=tachyonVpnRouteClient.Rpc_NewClient(tachyonVpnProtocol.PublicRouteServerAddr)
 			list,rpcErr:=routeC.VpnNodeList()
 			if rpcErr!=nil{
 				panic(rpcErr.Error())
 			}
-			fmt.Println("start mulit ping 2")
 			locker :=sync.Mutex{}
 			var fastNode tachyonVpnRouteClient.VpnNode
 			wg:=sync.WaitGroup{}
