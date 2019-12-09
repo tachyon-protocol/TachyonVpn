@@ -30,6 +30,8 @@ const (
 	CmdKeepAlive byte = 5
 )
 
+const PublicRouteServerAddr = "35.223.105.46:24587"
+
 type VpnPacket struct {
 	Cmd              byte
 	ClientIdSender   uint64

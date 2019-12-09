@@ -9,14 +9,19 @@ import (
 	"github.com/tachyon-protocol/udw/udwConsole"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwIpPacket"
+	"github.com/tachyon-protocol/udw/udwIpToCountryV2"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwNet/udwTapTun"
+	"github.com/tachyon-protocol/udw/udwStrings"
 	"github.com/tachyon-protocol/udw/udwTlsSelfSignCertV2"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"tachyonVpnProtocol"
+	"tachyonVpnRouteServer/tachyonVpnRouteClient"
+	"time"
 	"tyTls"
 )
 
@@ -24,8 +29,11 @@ type ServerRunReq struct {
 	UseRelay        bool
 	RelayServerIp   string
 	RelayServerTKey string
+	RelayServerChk string
 
 	SelfTKey string
+	BlockCountryCodeListS string // empty string do not block any country code, look like "KP,IR,RU"
+	DisableRegisterRouteServer bool
 }
 
 type Server struct {
@@ -40,6 +48,7 @@ type Server struct {
 	relayConn      net.Conn
 
 	req ServerRunReq
+	blockCountryCodeList []string
 }
 
 func (s *Server) Run(req ServerRunReq) {
@@ -64,8 +73,30 @@ func (s *Server) Run(req ServerRunReq) {
 		ServerCert: *tlsServerCert,
 	})
 	udwErr.PanicIfErrorMsg(errMsg)
-	fmt.Println("ServerChk: "+tyTls.MustHashChkFromTlsCert(tlsServerCert))
+	serverChk:=tyTls.MustHashChkFromTlsCert(tlsServerCert)
+	fmt.Println("ServerChk: "+serverChk)
 	fmt.Println("Server started ✔")
+	if s.req.BlockCountryCodeListS!=""{
+		s.blockCountryCodeList = strings.Split(s.req.BlockCountryCodeListS,",")
+	}
+	if s.req.DisableRegisterRouteServer==false{
+		go func(){
+			c:=tachyonVpnRouteClient.Rpc_NewClient(tachyonVpnProtocol.PublicRouteServerAddr)
+			for{
+				err1,err2:=c.VpnNodeRegister(tachyonVpnRouteClient.VpnNode{
+					ServerChk:serverChk,
+				})
+				if err1!="" {
+					udwLog.Log("4etc1ghe1khj "+err1)
+				}
+				if err2!=nil{
+					udwLog.Log("yew68bub3a "+err2.Error())
+				}
+				time.Sleep(time.Second*30)
+			}
+		}()
+	}
+
 	//read thread from TUN
 	go func() {
 		bufR := make([]byte, 16*1024)
@@ -121,14 +152,32 @@ func (s *Server) Run(req ServerRunReq) {
 		udwErr.PanicIfError(err)
 		s.relayConnKeepAliveThread()
 	} else {
-		_close := udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort), func(conn net.Conn) {
+		closerFn:=udwNet.TcpNewListener(":"+strconv.Itoa(tachyonVpnProtocol.VpnPort),func(conn net.Conn){
+			if s.clientConnFilter(conn)==false{
+				_ = conn.Close()
+				return
+			}
 			conn = tls.Server(conn, sTlsConfig)
 			s.clientTcpConnHandle(conn)
 		})
-		closer.AddOnClose(_close)
+		closer.AddOnClose(closerFn)
 	}
 	udwConsole.WaitForExit()
 	closer.Close()
+}
+
+// return true as pass
+func (s *Server) clientConnFilter(connToClient net.Conn) bool{
+	if len(s.blockCountryCodeList)>0{
+		ip,_,errMsg:=udwNet.GetIpAndPortFromNetAddr(connToClient.RemoteAddr())
+		if errMsg==""{
+			cc:=udwIpToCountryV2.MustGetCountryIsoCode(ip)
+			if cc!="" && udwStrings.IsInSlice(s.blockCountryCodeList,cc){
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func (s *Server) clientTcpConnHandle(connToClient net.Conn) {
