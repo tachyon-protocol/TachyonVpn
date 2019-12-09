@@ -19,7 +19,7 @@ func (c *Client) connect() error {
 	if err != nil {
 		return errors.New("[w7syh9d1zgd] " + err.Error())
 	}
-	vpnConn = tls.Client(vpnConn, newInsecureClientTlsConfig())
+	vpnConn = tls.Client(vpnConn, c.tlsConfig)
 	var (
 		handshakeVpnPacket = tachyonVpnProtocol.VpnPacket{
 			Cmd:            tachyonVpnProtocol.CmdHandshake,
@@ -44,7 +44,7 @@ func (c *Client) connect() error {
 			connRelaySide, plain = tachyonVpnProtocol.NewInternalConnectionDual(nil, nil)
 			relayConn            = vpnConn
 		)
-		vpnConn = tls.Client(plain, newInsecureClientTlsConfig())
+		vpnConn = tls.Client(plain, c.tlsConfig)
 		//read from relay conn, write to vpn conn
 		go func() {
 			var (

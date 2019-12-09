@@ -10,6 +10,7 @@ import (
 func main(){
 	tryGoInstall("make/client")
 	tryGoInstall("make/server")
+	tryGoInstall("tachyonVpnRouteServer")
 	thisPath:=udwFile.MustGetFullPath("src/github.com/tachyon-protocol/udw")
 	dirSet:=map[string]struct{}{}
 	for _,fullpath:=range udwFile.MustGetAllFiles(thisPath){
