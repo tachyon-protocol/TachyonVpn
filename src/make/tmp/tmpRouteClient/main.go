@@ -8,7 +8,6 @@ import (
 )
 
 func main(){
-	//udwRpc2Tester.BuildAndTest()
 	routeC:=tyVpnRouteClient.Rpc_NewClient(tyVpnProtocol.PublicRouteServerAddr)
 	fmt.Println("start 1")
 	rpcErr:=routeC.Ping()
