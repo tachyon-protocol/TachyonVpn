@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/tachyon-protocol/udw/udwConsole"
-	"tachyonVpnRouteServer"
+	"github.com/tachyon-protocol/udw/tyVpnRouteServer"
 )
 
 func main(){
-	udwConsole.MustRunCommandLineFromFuncV2(tachyonVpnRouteServer.RouteServerRunCmd)
+	udwConsole.MustRunCommandLineFromFuncV2(tyVpnRouteServer.RouteServerRunCmd)
 }

@@ -10,7 +10,7 @@ import (
 	"io"
 	"net"
 	"strings"
-	"tachyonVpnProtocol"
+	"github.com/tachyon-protocol/udw/tyVpnProtocol"
 )
 
 func main() {
@@ -26,7 +26,7 @@ func main() {
 			if !debugInternalConnection {
 				_conn = conn
 			} else {
-				rBwA, rAwB := tachyonVpnProtocol.NewInternalConnectionDual(nil, nil)
+				rBwA, rAwB := tyVpnProtocol.NewInternalConnectionDual(nil, nil)
 				_conn = rAwB
 				go func() {
 					buf := make([]byte, 10<<20)

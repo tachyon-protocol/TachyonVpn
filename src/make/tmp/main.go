@@ -1,15 +1,15 @@
 package main
 
 import (
-	"tachyonVpnRouteServer/tachyonVpnRouteClient"
-	"tachyonVpnProtocol"
 	"github.com/tachyon-protocol/udw/udwDebug"
 	"fmt"
+	"github.com/tachyon-protocol/udw/tyVpnRouteServer/tyVpnRouteClient"
+	"github.com/tachyon-protocol/udw/tyVpnProtocol"
 )
 
 func main(){
 	//udwRpc2Tester.BuildAndTest()
-	routeC:=tachyonVpnRouteClient.Rpc_NewClient(tachyonVpnProtocol.PublicRouteServerAddr)
+	routeC:=tyVpnRouteClient.Rpc_NewClient(tyVpnProtocol.PublicRouteServerAddr)
 	fmt.Println("start 1")
 	rpcErr:=routeC.Ping()
 	if rpcErr!=nil{
