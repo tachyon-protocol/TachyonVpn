@@ -13,7 +13,6 @@
 - Support reconnection between client and server
 - Support reconnection between relay server and vpe server
 
-# TachyonVpn
 ## Version 3
 - Target Platform：Linux/Darwin/Windows/Mac
 - CLI Only
