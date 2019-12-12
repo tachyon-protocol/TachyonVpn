@@ -10,6 +10,5 @@ import (
 //vpe server
 //sshDeploy -PkgPath make/server -Ip vpeServerIp -Command 'server -SelfTKey exit123 -UseRelay -RelayServerIp relayServerIp -RelayServerTKey relay123'
 func main() {
-	server := &tyVpnServer.Server{}
-	udwConsole.MustRunCommandLineFromFuncV2(server.Run)
+	udwConsole.MustRunCommandLineFromFuncV2(tyVpnServer.RunCmd)
 }
