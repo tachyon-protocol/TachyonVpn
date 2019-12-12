@@ -1,4 +1,18 @@
 # TachyonVpn
+## Version 5
+* Router Server
+    * VPN server will register itself to Router server
+    * VPN client can fetch available IP list from Router server
+* VPN Optimization
+    * Reduce memory allocation of VPN connection
+    * Improve stability of VPN connection
+    * Test multiple clients and VPE servers
+  
+## Version 4
+- Improve security: verify hash of certificate
+- Support reconnection between client and server
+- Support reconnection between relay server and vpe server
+
 ## Version 3
 - Target Platform：Linux/Darwin/Windows/Mac
 - CLI Only
