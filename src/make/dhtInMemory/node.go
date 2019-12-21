@@ -10,9 +10,9 @@ import (
 
 type node struct {
 	id         uint64
-	knownNodes map[uint64]bool
 	lock       sync.RWMutex
 	keyMap     map[uint64][]byte
+	knownNodes map[uint64]bool
 }
 
 func newNode(bootstrapNodeIds ...uint64) *node {
@@ -39,8 +39,36 @@ func (n *node) store(v []byte) {
 	n.lock.Unlock()
 }
 
-func (n *node) findNode(targetId uint64) (closetId uint64) {
-	return 0
+func (n *node) findNode(targetId uint64) (closestId uint64) {
+	closestId = n.findNodeLocal(targetId)
+	if targetId == closestId {
+		return targetId
+	}
+	for {
+		closestNode := rpcInMemoryGetNode(closestId)
+		_closestId := closestNode.findNodeLocal(targetId)
+		if _closestId == closestId {
+			return _closestId
+		}
+		closestId = _closestId
+		if closestId == targetId {
+			return targetId
+		}
+	}
+}
+
+func (n *node) findNodeLocal(targetId uint64) (closestId uint64) {
+	var min uint64 = math.MaxUint64
+	var minId uint64
+	n.lock.RLock()
+	for id := range n.knownNodes{
+		_min := targetId^id
+		if _min	 < min {
+			minId = id
+		}
+	}
+	n.lock.RUnlock()
+	return minId
 }
 
 func (n *node) findValue(key uint64) (value []byte) {
@@ -52,12 +80,14 @@ func (n *node) findValue(key uint64) (value []byte) {
 	}
 	var min uint64 = math.MaxUint64
 	var minId uint64
+	n.lock.RLock()
 	for id := range n.knownNodes {
 		_min := key^id
 		if _min < min {
 			minId = id
 		}
 	}
+	n.lock.RUnlock()
 	_node := rpcInMemoryGetNode(minId)
 	return _node.findValue(key)
 }
