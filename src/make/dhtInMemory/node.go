@@ -16,10 +16,13 @@ type node struct {
 	knownNodes map[uint64]bool
 }
 
-func newNode(bootstrapNodeIds ...uint64) *node {
-	n :=  &node{
-		id:     udwRand.MustCryptoRandUint64(),
-		keyMap: map[uint64][]byte{},
+func newNode(id uint64,bootstrapNodeIds ...uint64) *node {
+	if id == 0 {
+		id = udwRand.MustCryptoRandUint64()
+	}
+	n := &node{
+		id:         id,
+		keyMap:     map[uint64][]byte{},
 		knownNodes: map[uint64]bool{},
 	}
 	for _, id := range bootstrapNodeIds {
@@ -41,15 +44,24 @@ func (n *node) store(v []byte) {
 }
 
 func (n *node) findNode(targetId uint64) (closestId uint64) {
-	closestId = n.findNodeLocal(targetId)
+	closestId = n.findNodeLocal(n.id, targetId)
 	if targetId == closestId {
 		return targetId
 	}
 	for {
 		closestNode := rpcInMemoryGetNode(closestId)
-		_closestId := closestNode.findNodeLocal(targetId)
+		_closestId := closestNode.findNodeLocal(n.id, targetId)
+		if _closestId == 0 {
+			return closestId
+		}
+		n.lock.Lock()
+		n.knownNodes[_closestId] = true
+		if debugLog {
+			udwLog.Log("[findNode]", n.id, "add new id", _closestId)
+		}
+		n.lock.Unlock()
 		if _closestId == closestId {
-			return _closestId
+			return closestId
 		}
 		closestId = _closestId
 		if closestId == targetId {
@@ -58,19 +70,27 @@ func (n *node) findNode(targetId uint64) (closestId uint64) {
 	}
 }
 
-func (n *node) findNodeLocal(targetId uint64) (closestId uint64) {
+func (n *node) findNodeLocal(callerId uint64, targetId uint64) (closestId uint64) {
 	var min uint64 = math.MaxUint64
 	var minId uint64
 	n.lock.RLock()
-	for id := range n.knownNodes{
-		_min := targetId^id
-		if _min	 < min {
+	for id := range n.knownNodes {
+		_min := targetId ^ id
+		if _min < min {
 			minId = id
 		}
 	}
 	n.lock.RUnlock()
 	if debugLog {
 		udwLog.Log("[findNodeLocal]", n.id, "closest:", minId, "target:", targetId)
+	}
+	if callerId != n.id && callerId == targetId {
+		n.lock.Lock()
+		n.knownNodes[callerId] = true
+		n.lock.Unlock()
+		if debugLog {
+			udwLog.Log("[findNodeLocal]", n.id, "add new id", callerId)
+		}
 	}
 	return minId
 }
@@ -86,7 +106,7 @@ func (n *node) findValue(key uint64) (value []byte) {
 	var minId uint64
 	n.lock.RLock()
 	for id := range n.knownNodes {
-		_min := key^id
+		_min := key ^ id
 		if _min < min {
 			minId = id
 		}
