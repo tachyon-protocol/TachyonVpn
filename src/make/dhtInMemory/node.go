@@ -3,6 +3,7 @@ package dhtInMemory
 import (
 	"encoding/binary"
 	"github.com/tachyon-protocol/udw/udwCryptoSha3"
+	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwRand"
 	"math"
 	"sync"
@@ -68,6 +69,9 @@ func (n *node) findNodeLocal(targetId uint64) (closestId uint64) {
 		}
 	}
 	n.lock.RUnlock()
+	if debugLog {
+		udwLog.Log("[findNodeLocal]", n.id, "closest:", minId, "target:", targetId)
+	}
 	return minId
 }
 
