@@ -1,21 +1,26 @@
 # TachyonVpn
-## Version 5
-* Router Server
-    * VPN server will register itself to Router server
-    * VPN client can fetch available IP list from Router server
-* VPN Optimization
-    * Reduce memory allocation of VPN connection
-    * Improve stability of VPN connection
-    * Test multiple clients and VPE servers
-  
-## Version 4
-- Improve security: verify hash of certificate
-- Support reconnection between client and server
-- Support reconnection between relay server and vpe server
+A Decentralized VPN to Unblock the New Internet of Democracy, Privacy, Security and High Speed.
 
-## Version 3
-- Target Platform：Linux/Darwin/Windows/Mac
-- CLI Only
+## Usage
+### Direct Mode
+- For servers which can be accessed from Internet directly (with public IP and public port)
+- run server `server`
+- run client `client [server's IP]`
+### Relay Mode
+- For servers which can not be accessed from Internet directly and need another 'Listen Mode' server to relay its traffic
+- run relay server `server`
+- run exit server `server -UseRelay -RelayServerIp [relay server's IP]`
+- run client `client -IsRelay -ServerIp [relay server's IP] -ExitServerClientId [exit server's ClientId]`
+### TKey Direct Mode
+- run server `server -SelfTKey [server's TKey]`
+- run client `client -ServerIp [server's IP] -ServerTKey [server's TKey]`
+### TKey Relay Mode
+- run relay server `server -SelfTKey [relay server's TKey]`
+- run exit server `server -SelfTKey [exit server's TKey] -UseRelay -RelayServerIp [relay server's IP] -RelayServerTKey [relay server's TKey]`
+- run client `client -IsRelay -ServerIp [relay server's IP] -ServerTKey [relay server's TKey] -ExitServerClientId [exit server's ClientId] -ExitServerToken [exit server's TKey]`
+
+## Versions
+https://github.com/tachyon-protocol/TachyonVpn/releases
 
 ## Details of demo version
 * Router will be a single server for test in this version
@@ -42,24 +47,3 @@
 				* TLS > Forward Protocol
 				    * TLS > VPN Protocol > Data IP Packet
 
-## Usage
-### Direct Mode
-- For servers which can be accessed from Internet directly (with public IP and public port)
-- run server `server`
-- run client `client [server's IP]`
-### Relay Mode
-- For servers which can not be accessed from Internet directly and need another 'Listen Mode' server to relay its traffic
-- run relay server `server`
-- run exit server `server -UseRelay -RelayServerIp [relay server's IP]`
-- run client `client -IsRelay -ServerIp [relay server's IP] -ExitServerClientId [exit server's ClientId]`
-### TKey Direct Mode
-- run server `server -SelfTKey [server's TKey]`
-- run client `client -ServerIp [server's IP] -ServerTKey [server's TKey]`
-### TKey Relay Mode
-- run relay server `server -SelfTKey [relay server's TKey]`
-- run exit server `server -SelfTKey [exit server's TKey] -UseRelay -RelayServerIp [relay server's IP] -RelayServerTKey [relay server's TKey]`
-- run client `client -IsRelay -ServerIp [relay server's IP] -ServerTKey [relay server's TKey] -ExitServerClientId [exit server's ClientId] -ExitServerToken [exit server's TKey]`
-
-
-This product includes GeoLite2 data created by MaxMind, available from
-<a href="https://www.maxmind.com">https://www.maxmind.com</a>.
