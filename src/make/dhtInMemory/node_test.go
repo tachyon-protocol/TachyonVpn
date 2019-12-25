@@ -17,6 +17,26 @@ func newTestNetwork() *node {
 	return node5New
 }
 
+func TestRandomNetwork(t *testing.T) {
+	rpcInMemoryReset()
+	node0 := newNode(0)
+	node1 := newNode(0, node0.id)
+	node2 := newNode(0, node1.id)
+	node3 := newNode(0, node0.id)
+	rpcInMemoryPrintlAllNode()
+
+	const data = "Poseidon"
+	key := hash([]byte(data))
+	node3.store([]byte(data))
+	storeNodeId := node3.findNode(key)
+	fmt.Println("will store in:", storeNodeId)
+	storeNode := rpcInMemoryGetNode(storeNodeId)
+	storeNode.store([]byte(data))
+
+	v := node2.findValue(key)
+	udwTest.Ok(string(v) == data)
+}
+
 func TestJoiningTheNetwork(t *testing.T) {
 	node5New := newTestNetwork()
 	closestId := node5New.findNode(node5New.id)
