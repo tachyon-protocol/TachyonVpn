@@ -55,15 +55,17 @@ func (n *node) findNode(targetId uint64) (closestId uint64) {
 		if _closestId == 0 {
 			return closestId
 		}
-		n.lock.Lock()
-		_, exist := n.knownNodes[_closestId]
-		if !exist {
-			if debugLog {
-				udwLog.Log("[findNode]", n.id, "add new id", _closestId)
+		if _closestId != n.id {
+			n.lock.Lock()
+			_, exist := n.knownNodes[_closestId]
+			if !exist {
+				if debugLog {
+					udwLog.Log("[findNode]", n.id, "add new id", _closestId)
+				}
+				n.knownNodes[_closestId] = true
 			}
-			n.knownNodes[_closestId] = true
+			n.lock.Unlock()
 		}
-		n.lock.Unlock()
 		if _closestId == closestId {
 			return closestId
 		}
@@ -81,6 +83,7 @@ func (n *node) findNodeLocal(callerId uint64, targetId uint64) (closestId uint64
 	for id := range n.knownNodes {
 		_min := targetId ^ id
 		if _min < min {
+			min = _min
 			minId = id
 		}
 	}

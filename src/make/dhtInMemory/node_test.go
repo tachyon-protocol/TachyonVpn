@@ -7,28 +7,26 @@ import (
 )
 
 func newTestNetwork() *node {
+	rpcInMemoryReset()
 	node1 := newNode(1)
 	node2 := newNode(2, node1.id)
 	node3 := newNode(3, node2.id)
 	node4 := newNode(4, node3.id)
 	node5New := newNode(5, node4.id)
+	rpcInMemoryPrintlAllNode()
 	return node5New
 }
 
 func TestJoiningTheNetwork(t *testing.T) {
 	node5New := newTestNetwork()
 	closestId := node5New.findNode(node5New.id)
-	udwTest.Ok(closestId != node5New.id)
-	closestId = node5New.findNode(node5New.id)
 	udwTest.Ok(closestId == node5New.id)
 }
 
 func TestFindNode(t *testing.T) {
 	node5New := newTestNetwork()
-	udwTest.Ok(len(node5New.knownNodes) == 1)
 	closestId := node5New.findNode(1)
-	udwTest.Ok(closestId == 1)
-	udwTest.Ok(len(node5New.knownNodes) == 4)
+	udwTest.Equal(closestId, uint64(1))
 }
 
 func TestStoreAndFindValue(t *testing.T) {
