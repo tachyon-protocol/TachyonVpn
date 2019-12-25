@@ -42,3 +42,41 @@ func TestStoreAndFindValue(t *testing.T) {
 	v := node3.findValue(key)
 	udwTest.Ok(string(v) == data)
 }
+
+func TestStoreAndFindValue2(t *testing.T) {
+	node5 := newTestNetwork()
+	const data = "Oceanus"
+	key := hash([]byte(data))
+	storeNodeId := node5.findNode(key)
+	fmt.Println("will store in:", storeNodeId)
+	storeNode := rpcInMemoryGetNode(storeNodeId)
+	storeNode.store([]byte(data))
+	v := storeNode.findValue(key)
+	udwTest.Ok(string(v) == data)
+}
+
+func TestStoreAndFindValue3(t *testing.T) {
+	node5 := newTestNetwork()
+	const data = "Hyperion"
+	key := hash([]byte(data))
+	storeNodeId := node5.findNode(key)
+	fmt.Println("will store in:", storeNodeId)
+	storeNode := rpcInMemoryGetNode(storeNodeId)
+	storeNode.store([]byte(data))
+	node3 := rpcInMemoryGetNode(3)
+	v := node3.findValue(key)
+	udwTest.Ok(string(v) == data)
+}
+
+func TestStoreAndFindValue4(t *testing.T) {
+	node5 := newTestNetwork()
+	const data = "Hyperion"
+	key := hash([]byte(data))
+	storeNodeId := node5.findNode(key)
+	fmt.Println("will store in:", storeNodeId)
+	storeNode := rpcInMemoryGetNode(storeNodeId)
+	storeNode.store([]byte(data))
+	node6 := newNode(6) //isolated
+	v := node6.findValue(key)
+	udwTest.Ok(v == nil)
+}

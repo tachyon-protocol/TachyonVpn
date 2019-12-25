@@ -52,9 +52,6 @@ func (n *node) findNode(targetId uint64) (closestId uint64) {
 	for {
 		closestNode := rpcInMemoryGetNode(closestId)
 		_closestId := closestNode.findNodeLocal(n.id, targetId)
-		if _closestId == 0 {
-			return closestId
-		}
 		if _closestId != n.id {
 			n.lock.Lock()
 			_, exist := n.knownNodes[_closestId]
@@ -124,9 +121,6 @@ func (n *node) findValue(key uint64) (value []byte) {
 		v, _closestId := closestNode.findValueLocal(n.id, key)
 		if v != nil {
 			return v
-		}
-		if _closestId == 0 {
-			return nil
 		}
 		if _closestId == closestId {
 			return nil
