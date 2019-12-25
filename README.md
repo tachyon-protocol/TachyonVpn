@@ -19,8 +19,38 @@ A Decentralized VPN to Unblock the New Internet of Democracy, Privacy, Security 
 - run exit server `server -SelfTKey [exit server's TKey] -UseRelay -RelayServerIp [relay server's IP] -RelayServerTKey [relay server's TKey]`
 - run client `client -IsRelay -ServerIp [relay server's IP] -ServerTKey [relay server's TKey] -ExitServerClientId [exit server's ClientId] -ExitServerToken [exit server's TKey]`
 
-## Versions
-https://github.com/tachyon-protocol/TachyonVpn/releases
+## Releases
+### Updates
+* DHT store, query, lookup etc.
+* DHT V2 implementation in memory
+### demo-v6 Support disconnection of client and GC client in server
+* Support disconnection of client
+* GC client in server
+* DHT Demo V1
+### demo-v5 Router server is launched to improve stability of VPN connection.
+* Router Server
+  * VPN server will register itself to Router server
+  * VPN client can fetch available IP list from Router server
+* VPN Optimization
+  * Reduce memory allocation of VPN connection
+  * Improve stability of VPN connection
+  * Test multiple clients and VPE servers
+### demo-v4 Reconnect and Verify Certificate
+* Improve security: verify hash of certificate
+* Support reconnection between client and server
+* Support reconnection between relay server and vpe server
+### demo-v3 Support server to verify TKey
+Server can verify TKey (e.g. 123456 or vRm4hdY!9cwavRg) in this version. When client tries to connect server with a TKey, server will verify whether TKey is matched or not. 
+Server can decide which client has permission to connect with it.
+### demo-v3-docker Docker Image Runner of Tachyon Server
+To reduce steps of running server on Windows or macOS by Docker, we developed Docker Image Runner for Tachyon Server.
+### demo-v2-docker Server runs on Docker for Windows and MacOS
+We'll implement native version server for Windows and MacOS in the future.
+At the experimental stage, we'll build a Docker image to run Tachyon Server on Windows and MacOS.
+The image will be updated with Linux version.
+### CheckHelper-v2
+### demo-v2 Support P2P Relay Mode
+### demo-v1 First Demo
 
 ## Details of demo version
 * Router will be a single server for test in this version
