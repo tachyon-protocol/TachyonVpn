@@ -16,7 +16,7 @@ type node struct {
 	knownNodes map[uint64]bool
 }
 
-func newNode(id uint64,bootstrapNodeIds ...uint64) *node {
+func newNode(id uint64, bootstrapNodeIds ...uint64) *node {
 	if id == 0 {
 		id = udwRand.MustCryptoRandUint64()
 	}
@@ -29,6 +29,7 @@ func newNode(id uint64,bootstrapNodeIds ...uint64) *node {
 		n.knownNodes[id] = true
 	}
 	rpcInMemoryRegister(n)
+	n.findNode(n.id)
 	return n
 }
 
@@ -47,6 +48,9 @@ func (n *node) findNode(targetId uint64) (closestId uint64) {
 	closestId = n.findNodeLocal(n.id, targetId)
 	if targetId == closestId {
 		return targetId
+	}
+	if closestId == 0 {
+		return 0
 	}
 	for {
 		closestNode := rpcInMemoryGetNode(closestId)
@@ -81,10 +85,10 @@ func (n *node) findNodeLocal(callerId uint64, targetId uint64) (closestId uint64
 		}
 	}
 	n.lock.RUnlock()
-	if debugLog {
-		udwLog.Log("[findNodeLocal]", n.id, "closest:", minId, "target:", targetId)
+	if callerId == n.id {
+		return minId
 	}
-	if callerId != n.id && callerId == targetId {
+	if callerId == targetId {
 		n.lock.Lock()
 		n.knownNodes[callerId] = true
 		n.lock.Unlock()
@@ -92,26 +96,45 @@ func (n *node) findNodeLocal(callerId uint64, targetId uint64) (closestId uint64
 			udwLog.Log("[findNodeLocal]", n.id, "add new id", callerId)
 		}
 	}
-	return minId
+	if minId^targetId < n.id^targetId {
+		if debugLog {
+			udwLog.Log("[findNodeLocal]", n.id, "closest:", minId, "target:", targetId)
+		}
+		return minId
+	}
+	if debugLog {
+		udwLog.Log("[findNodeLocal]", n.id, "closest is itself, target", targetId)
+	}
+	return n.id
 }
 
 func (n *node) findValue(key uint64) (value []byte) {
+	v, closestId := n.findValueLocal(n.id, key)
+	if v != nil {
+		return v
+	}
+	for {
+		closestNode := rpcInMemoryGetNode(closestId)
+		v, _closestId := closestNode.findValueLocal(n.id, key)
+		if v != nil {
+			return v
+		}
+		if _closestId == 0 {
+			return nil
+		}
+		if _closestId == closestId {
+			return nil
+		}
+		closestId = _closestId
+	}
+}
+
+func (n *node) findValueLocal(callerId uint64, key uint64) (value []byte, closestId uint64) {
 	n.lock.RLock()
 	v, exist := n.keyMap[key]
 	n.lock.RUnlock()
 	if exist {
-		return v
+		return v, 0
 	}
-	var min uint64 = math.MaxUint64
-	var minId uint64
-	n.lock.RLock()
-	for id := range n.knownNodes {
-		_min := key ^ id
-		if _min < min {
-			minId = id
-		}
-	}
-	n.lock.RUnlock()
-	_node := rpcInMemoryGetNode(minId)
-	return _node.findValue(key)
+	return nil, n.findNodeLocal(callerId, key)
 }
