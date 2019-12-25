@@ -7,7 +7,7 @@ import (
 )
 
 func newTestNetwork() *node {
-	node1 := newNode(1, 0)
+	node1 := newNode(1)
 	node2 := newNode(2, node1.id)
 	node3 := newNode(3, node2.id)
 	node4 := newNode(4, node3.id)

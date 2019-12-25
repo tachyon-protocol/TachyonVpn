@@ -49,9 +49,6 @@ func (n *node) findNode(targetId uint64) (closestId uint64) {
 	if targetId == closestId {
 		return targetId
 	}
-	if closestId == 0 {
-		return 0
-	}
 	for {
 		closestNode := rpcInMemoryGetNode(closestId)
 		_closestId := closestNode.findNodeLocal(n.id, targetId)
@@ -59,9 +56,12 @@ func (n *node) findNode(targetId uint64) (closestId uint64) {
 			return closestId
 		}
 		n.lock.Lock()
-		n.knownNodes[_closestId] = true
-		if debugLog {
-			udwLog.Log("[findNode]", n.id, "add new id", _closestId)
+		_, exist := n.knownNodes[_closestId]
+		if !exist {
+			if debugLog {
+				udwLog.Log("[findNode]", n.id, "add new id", _closestId)
+			}
+			n.knownNodes[_closestId] = true
 		}
 		n.lock.Unlock()
 		if _closestId == closestId {
@@ -76,7 +76,7 @@ func (n *node) findNode(targetId uint64) (closestId uint64) {
 
 func (n *node) findNodeLocal(callerId uint64, targetId uint64) (closestId uint64) {
 	var min uint64 = math.MaxUint64
-	var minId uint64
+	var minId = n.id
 	n.lock.RLock()
 	for id := range n.knownNodes {
 		_min := targetId ^ id
@@ -90,11 +90,14 @@ func (n *node) findNodeLocal(callerId uint64, targetId uint64) (closestId uint64
 	}
 	if callerId == targetId {
 		n.lock.Lock()
-		n.knownNodes[callerId] = true
-		n.lock.Unlock()
-		if debugLog {
-			udwLog.Log("[findNodeLocal]", n.id, "add new id", callerId)
+		_, exist := n.knownNodes[callerId]
+		if !exist {
+			n.knownNodes[callerId] = true
+			if debugLog {
+				udwLog.Log("[findNodeLocal]", n.id, "add new id", callerId)
+			}
 		}
+		n.lock.Unlock()
 	}
 	if minId^targetId < n.id^targetId {
 		if debugLog {
