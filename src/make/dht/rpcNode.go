@@ -106,7 +106,14 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 			continue
 		}
 		if response._idMessage != request._idMessage {
-			return response, nil
+			switch response.cmd {
+			case cmdOk:
+				return response, nil
+			case cmdError:
+				return nil, errors.New("[mnh3apk1u8b] error[" + string(response.data) + "]")
+			default:
+				return nil, errors.New("[45rau1mr258] unknown cmd[" + strconv.Itoa(int(response.cmd)) + "] data[" + string(response.data) + "]")
+			}
 		}
 		udwLog.Log("[7dwn1kjg1uqe] _idMessage[" + strconv.Itoa(int(response._idMessage)) + "] not match request[" + strconv.Itoa(int(request._idMessage)) + "]")
 		continue
@@ -114,7 +121,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 }
 
 func (rNode *rpcNode) store(v []byte) error {
-	resp, err := rNode.call(rpcMessage{
+	_, err := rNode.call(rpcMessage{
 		cmd:      cmdStore,
 		idSender: rNode.id,
 		data:     v,
@@ -122,12 +129,5 @@ func (rNode *rpcNode) store(v []byte) error {
 	if err != nil {
 		return errors.New("[fz4qqp4j9k]" + err.Error())
 	}
-	switch resp.cmd {
-	case cmdOk:
-		return nil
-	case cmdError:
-		return errors.New("[mnh3apk1u8b] error[" + string(resp.data) + "]")
-	default:
-		return errors.New("[45rau1mr258] unknown cmd[" + strconv.Itoa(int(resp.cmd)) + "] data[" + string(resp.data) + "]")
-	}
+	return nil
 }
