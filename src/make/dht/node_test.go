@@ -1,4 +1,4 @@
-package dhtInMemory
+package dht
 
 import (
 	"fmt"
@@ -30,12 +30,12 @@ func newTestNetwork() *node {
 //		const data = "Poseidon"
 //		key := hash([]byte(data))
 //		node3.store([]byte(data))
-//		storeNodeId := node3.FindNode(key)
+//		storeNodeId := node3.findNode(key)
 //		fmt.Println("will store in:", storeNodeId)
 //		storeNode := rpcInMemoryGetNode(storeNodeId)
 //		storeNode.store([]byte(data))
 //
-//		v := node2.FindValue(key)
+//		v := node2.findValue(key)
 //		udwTest.Ok(string(v) == data)
 //	}
 //}
@@ -51,24 +51,24 @@ func TestFindLoop(t *testing.T) {
 	const data = "Poseidon"
 	key := hash([]byte(data))
 	node3.store([]byte(data))
-	storeNodeId := node3.FindNode(key)
+	storeNodeId := node3.findNode(key)
 	fmt.Println("will store in:", storeNodeId)
 	storeNode := rpcInMemoryGetNode(storeNodeId)
 	storeNode.store([]byte(data))
 
-	v := node2.FindValue(key)
+	v := node2.findValue(key)
 	udwTest.Ok(string(v) == data)
 }
 
 func TestJoiningTheNetwork(t *testing.T) {
 	node5New := newTestNetwork()
-	closestId := node5New.FindNode(node5New.id)
+	closestId := node5New.findNode(node5New.id)
 	udwTest.Ok(closestId == node5New.id)
 }
 
 func TestFindNode(t *testing.T) {
 	node5New := newTestNetwork()
-	closestId := node5New.FindNode(1)
+	closestId := node5New.findNode(1)
 	udwTest.Equal(closestId, uint64(1))
 }
 
@@ -76,13 +76,13 @@ func TestStoreAndFindValue(t *testing.T) {
 	node5 := newTestNetwork()
 	const data = "prometheus"
 	key := hash([]byte(data))
-	closestId := node5.FindNode(key)
+	closestId := node5.findNode(key)
 	fmt.Println("will store in:", closestId)
 	closestNode := rpcInMemoryGetNode(closestId)
 	closestNode.store([]byte(data))
 
 	node3 := rpcInMemoryGetNode(3)
-	v := node3.FindValue(key)
+	v := node3.findValue(key)
 	udwTest.Ok(string(v) == data)
 }
 
@@ -90,11 +90,11 @@ func TestStoreAndFindValue2(t *testing.T) {
 	node5 := newTestNetwork()
 	const data = "Oceanus"
 	key := hash([]byte(data))
-	storeNodeId := node5.FindNode(key)
+	storeNodeId := node5.findNode(key)
 	fmt.Println("will store in:", storeNodeId)
 	storeNode := rpcInMemoryGetNode(storeNodeId)
 	storeNode.store([]byte(data))
-	v := storeNode.FindValue(key)
+	v := storeNode.findValue(key)
 	udwTest.Ok(string(v) == data)
 }
 
@@ -102,12 +102,12 @@ func TestStoreAndFindValue3(t *testing.T) {
 	node5 := newTestNetwork()
 	const data = "Hyperion"
 	key := hash([]byte(data))
-	storeNodeId := node5.FindNode(key)
+	storeNodeId := node5.findNode(key)
 	fmt.Println("will store in:", storeNodeId)
 	storeNode := rpcInMemoryGetNode(storeNodeId)
 	storeNode.store([]byte(data))
 	node3 := rpcInMemoryGetNode(3)
-	v := node3.FindValue(key)
+	v := node3.findValue(key)
 	udwTest.Ok(string(v) == data)
 }
 
@@ -115,11 +115,11 @@ func TestStoreAndFindValue4(t *testing.T) {
 	node5 := newTestNetwork()
 	const data = "Hyperion"
 	key := hash([]byte(data))
-	storeNodeId := node5.FindNode(key)
+	storeNodeId := node5.findNode(key)
 	fmt.Println("will store in:", storeNodeId)
 	storeNode := rpcInMemoryGetNode(storeNodeId)
 	storeNode.store([]byte(data))
 	node6 := newNode(6) //isolated
-	v := node6.FindValue(key)
+	v := node6.findValue(key)
 	udwTest.Ok(v == nil)
 }

@@ -1,4 +1,4 @@
-package dhtInMemory
+package dht
 
 import (
 	"fmt"

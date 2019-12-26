@@ -1,4 +1,4 @@
-package dhtInMemory
+package dht
 
 const (
 	k = 1

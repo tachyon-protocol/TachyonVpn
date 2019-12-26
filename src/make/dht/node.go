@@ -1,4 +1,4 @@
-package dhtInMemory
+package dht
 
 import (
 	"encoding/binary"
@@ -29,19 +29,13 @@ func newNode(id uint64, bootstrapNodeIds ...uint64) *node {
 		n.knownNodes[id] = true
 	}
 	rpcInMemoryRegister(n)
-	n.FindNode(n.id)
+	n.findNode(n.id)
 	return n
 }
 
 func hash(v []byte) uint64 {
 	digest := udwCryptoSha3.Sum224(v)
 	return binary.LittleEndian.Uint64(digest[:])
-}
-
-func (n *node) store(v []byte) {
-	n.lock.Lock()
-	n.keyMap[hash(v)] = v
-	n.lock.Unlock()
 }
 
 func (n *node) find(targetId uint64, isValue bool) (closestId uint64, value []byte) {
@@ -60,7 +54,7 @@ func (n *node) find(targetId uint64, isValue bool) (closestId uint64, value []by
 			_, exist := n.knownNodes[_closestId]
 			if !exist {
 				if debugLog {
-					udwLog.Log("[FindNode]", n.id, "add new id", _closestId)
+					udwLog.Log("[findNode]", n.id, "add new id", _closestId)
 				}
 				n.knownNodes[_closestId] = true
 			}
@@ -128,12 +122,20 @@ func (n *node) findLocal(callerId uint64, targetId uint64, isValue bool) (closes
 	return n.id, nil
 }
 
-func (n *node) FindNode(targetId uint64) (closestId uint64) {
+//TODO ping
+
+func (n *node) store(v []byte) {
+	n.lock.Lock()
+	n.keyMap[hash(v)] = v
+	n.lock.Unlock()
+}
+
+func (n *node) findNode(targetId uint64) (closestId uint64) {
 	closestId, _ = n.find(targetId, false)
 	return closestId
 }
 
-func (n *node) FindValue(key uint64) (value []byte) {
+func (n *node) findValue(key uint64) (value []byte) {
 	_, value = n.find(key, true)
 	return value
 }
