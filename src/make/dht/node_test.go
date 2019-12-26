@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-func newTestNetwork() *node {
+func newTestNetwork() *peerNode {
 	rpcInMemoryReset()
-	node1 := newNode(1)
-	node2 := newNode(2, node1.id)
-	node3 := newNode(3, node2.id)
-	node4 := newNode(4, node3.id)
-	node5New := newNode(5, node4.id)
+	node1 := newPeerNode(1)
+	node2 := newPeerNode(2, node1.id)
+	node3 := newPeerNode(3, node2.id)
+	node4 := newPeerNode(4, node3.id)
+	node5New := newPeerNode(5, node4.id)
 	rpcInMemoryPrintlAllNode()
 	return node5New
 }
@@ -21,10 +21,10 @@ func newTestNetwork() *node {
 //func TestRandomNetwork(t *testing.T) {
 //	for i := 0; i < 1; i++ {
 //		rpcInMemoryReset()
-//		node0 := newNode(0)
-//		node1 := newNode(0, node0.id)
-//		node2 := newNode(0, node1.id)
-//		node3 := newNode(0, node0.id)
+//		node0 := newPeerNode(0)
+//		node1 := newPeerNode(0, node0.id)
+//		node2 := newPeerNode(0, node1.id)
+//		node3 := newPeerNode(0, node0.id)
 //		rpcInMemoryPrintlAllNode()
 //
 //		const data = "Poseidon"
@@ -42,10 +42,10 @@ func newTestNetwork() *node {
 
 func TestFindLoop(t *testing.T) {
 	rpcInMemoryReset()
-	node0 := newNode(2013408581626216689)
-	node1 := newNode(4246694672849243900, node0.id)
-	node2 := newNode(6321635280997390418, node1.id)
-	node3 := newNode(16775675729505829361, node0.id)
+	node0 := newPeerNode(2013408581626216689)
+	node1 := newPeerNode(4246694672849243900, node0.id)
+	node2 := newPeerNode(6321635280997390418, node1.id)
+	node3 := newPeerNode(16775675729505829361, node0.id)
 	rpcInMemoryPrintlAllNode()
 
 	const data = "Poseidon"
@@ -119,7 +119,7 @@ func TestStoreAndFindValue4(t *testing.T) {
 	fmt.Println("will store in:", storeNodeId)
 	storeNode := rpcInMemoryGetNode(storeNodeId)
 	storeNode.store([]byte(data))
-	node6 := newNode(6) //isolated
+	node6 := newPeerNode(6) //isolated
 	v := node6.findValue(key)
 	udwTest.Ok(v == nil)
 }

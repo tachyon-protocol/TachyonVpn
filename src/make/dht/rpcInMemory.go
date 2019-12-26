@@ -8,23 +8,23 @@ import (
 
 var (
 	gRpcInMemoryNodeMapLock sync.RWMutex
-	gRpcInMemoryNodeMap     = map[uint64]*node{}
+	gRpcInMemoryNodeMap     = map[uint64]*peerNode{}
 )
 
 func rpcInMemoryReset(){
 	gRpcInMemoryNodeMapLock.Lock()
-	gRpcInMemoryNodeMap = map[uint64]*node{}
+	gRpcInMemoryNodeMap = map[uint64]*peerNode{}
 	gRpcInMemoryNodeMapLock.Unlock()
 }
 
-func rpcInMemoryGetNode(id uint64) *node {
+func rpcInMemoryGetNode(id uint64) *peerNode {
 	gRpcInMemoryNodeMapLock.RLock()
 	n := gRpcInMemoryNodeMap[id]
 	gRpcInMemoryNodeMapLock.RUnlock()
 	return n
 }
 
-func rpcInMemoryRegister(n *node) {
+func rpcInMemoryRegister(n *peerNode) {
 	gRpcInMemoryNodeMapLock.Lock()
 	gRpcInMemoryNodeMap[n.id] = n
 	gRpcInMemoryNodeMapLock.Unlock()
@@ -42,7 +42,7 @@ func rpcInMemoryPrintlAllNode (){
 	for _, id := range ids {
 		node := gRpcInMemoryNodeMap[id]
 		node.lock.RLock()
-		fmt.Println("node", node.id, "known:", node.knownNodes)
+		fmt.Println("peerNode", node.id, "known:", node.knownNodes)
 		node.lock.RUnlock()
 	}
 	gRpcInMemoryNodeMapLock.RUnlock()

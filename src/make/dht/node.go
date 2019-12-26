@@ -9,18 +9,18 @@ import (
 	"sync"
 )
 
-type node struct {
+type peerNode struct {
 	id         uint64
 	lock       sync.RWMutex
 	keyMap     map[uint64][]byte
 	knownNodes map[uint64]bool
 }
 
-func newNode(id uint64, bootstrapNodeIds ...uint64) *node {
+func newPeerNode(id uint64, bootstrapNodeIds ...uint64) *peerNode {
 	if id == 0 {
 		id = udwRand.MustCryptoRandUint64()
 	}
-	n := &node{
+	n := &peerNode{
 		id:         id,
 		keyMap:     map[uint64][]byte{},
 		knownNodes: map[uint64]bool{},
@@ -38,8 +38,8 @@ func hash(v []byte) uint64 {
 	return binary.LittleEndian.Uint64(digest[:])
 }
 
-func (n *node) find(targetId uint64, isValue bool) (closestId uint64, value []byte) {
-	closestId, value = n.findLocal(n.id, targetId, isValue)
+func (node *peerNode) find(targetId uint64, isValue bool) (closestId uint64, value []byte) {
+	closestId, value = node.findLocal(node.id, targetId, isValue)
 	if isValue && value != nil {
 		return closestId, value
 	}
@@ -48,17 +48,17 @@ func (n *node) find(targetId uint64, isValue bool) (closestId uint64, value []by
 	}
 	for {
 		closestNode := rpcInMemoryGetNode(closestId)
-		_closestId, _value := closestNode.findLocal(n.id, targetId, isValue)
-		if _closestId != n.id {
-			n.lock.Lock()
-			_, exist := n.knownNodes[_closestId]
+		_closestId, _value := closestNode.findLocal(node.id, targetId, isValue)
+		if _closestId != node.id {
+			node.lock.Lock()
+			_, exist := node.knownNodes[_closestId]
 			if !exist {
 				if debugLog {
-					udwLog.Log("[findNode]", n.id, "add new id", _closestId)
+					udwLog.Log("[findNode]", node.id, "add new id", _closestId)
 				}
-				n.knownNodes[_closestId] = true
+				node.knownNodes[_closestId] = true
 			}
-			n.lock.Unlock()
+			node.lock.Unlock()
 		}
 		if isValue && _value != nil {
 			return _closestId, _value
@@ -70,72 +70,72 @@ func (n *node) find(targetId uint64, isValue bool) (closestId uint64, value []by
 		if closestId == targetId {
 			return targetId, nil
 		}
-		if closestId == n.id {
-			return n.id, nil
+		if closestId == node.id {
+			return node.id, nil
 		}
 	}
 }
 
-func (n *node) findLocal(callerId uint64, targetId uint64, isValue bool) (closestId uint64, value []byte) {
+func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) (closestId uint64, value []byte) {
 	if isValue {
-		n.lock.RLock()
-		v, exist := n.keyMap[targetId]
-		n.lock.RUnlock()
+		node.lock.RLock()
+		v, exist := node.keyMap[targetId]
+		node.lock.RUnlock()
 		if exist {
 			return targetId, v
 		}
 	}
 	var min uint64 = math.MaxUint64
-	var minId = n.id
-	n.lock.RLock()
-	for id := range n.knownNodes {
+	var minId = node.id
+	node.lock.RLock()
+	for id := range node.knownNodes {
 		_min := targetId ^ id
 		if _min < min {
 			min = _min
 			minId = id
 		}
 	}
-	n.lock.RUnlock()
-	if callerId == n.id {
+	node.lock.RUnlock()
+	if callerId == node.id {
 		return minId, nil
 	}
 	if callerId == targetId {
-		n.lock.Lock()
-		_, exist := n.knownNodes[callerId]
+		node.lock.Lock()
+		_, exist := node.knownNodes[callerId]
 		if !exist {
-			n.knownNodes[callerId] = true
+			node.knownNodes[callerId] = true
 			if debugLog {
-				udwLog.Log("[findLocal]", n.id, "add new id", callerId)
+				udwLog.Log("[findLocal]", node.id, "add new id", callerId)
 			}
 		}
-		n.lock.Unlock()
+		node.lock.Unlock()
 	}
-	if minId^targetId < n.id^targetId {
+	if minId^targetId < node.id^targetId {
 		if debugLog {
-			udwLog.Log(n.id, "[findLocal]", targetId, "from caller", callerId, "closest:", minId)
+			udwLog.Log(node.id, "[findLocal]", targetId, "from caller", callerId, "closest:", minId)
 		}
 		return minId, nil
 	}
 	if debugLog {
-		udwLog.Log("[findLocal]", n.id, "closest is itself, target", targetId)
+		udwLog.Log("[findLocal]", node.id, "closest is itself, target", targetId)
 	}
-	return n.id, nil
+	return node.id, nil
 }
 
 //TODO ping
 
-func (n *node) store(v []byte) {
-	n.lock.Lock()
-	n.keyMap[hash(v)] = v
-	n.lock.Unlock()
+func (node *peerNode) store(v []byte) {
+	node.lock.Lock()
+	node.keyMap[hash(v)] = v
+	node.lock.Unlock()
 }
 
-func (n *node) findNode(targetId uint64) (closestId uint64) {
-	closestId, _ = n.find(targetId, false)
+func (node *peerNode) findNode(targetId uint64) (closestId uint64) {
+	closestId, _ = node.find(targetId, false)
 	return closestId
 }
 
-func (n *node) findValue(key uint64) (value []byte) {
-	_, value = n.find(key, true)
+func (node *peerNode) findValue(key uint64) (value []byte) {
+	_, value = node.find(key, true)
 	return value
 }
