@@ -1,6 +1,6 @@
 package dhtInMemory
 
 const (
-	k = 20
+	k = 1
 	debugLog = true
 )
