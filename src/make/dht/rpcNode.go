@@ -14,13 +14,32 @@ import (
 )
 
 const (
-	cmdPing      = 0
-	cmdStore     = 1
-	cmdFindNode  = 2
-	cmdFindValue = 3
-	cmdOk        = 4
-	cmdError     = 5
+	cmdPing      byte = 0
+	cmdStore     byte = 1
+	cmdFindNode  byte = 2
+	cmdFindValue byte = 3
+	cmdOk        byte = 4
+	cmdError     byte = 5
 )
+
+func getCmdString(cmd byte) string {
+	switch cmd {
+	case cmdPing:
+		return "PING"
+	case cmdStore:
+		return "STORE"
+	case cmdFindNode:
+		return "FIND_NODE"
+	case cmdFindValue:
+		return "FIND_VALUE"
+	case cmdOk:
+		return "OK"
+	case cmdError:
+		return "ERROR"
+	default:
+		return "UNKNOWN"
+	}
+}
 
 type rpcMessage struct {
 	cmd        byte
@@ -71,6 +90,9 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	rNode.lock.Lock()
 	defer rNode.lock.Unlock()
 	if rNode.conn == nil {
+		if debugRpcLog {
+			udwLog.Log("[rpcNode call] new conn to", rNode.ip)
+		}
 		conn, err := net.Dial("udp", rNode.ip+":"+strconv.Itoa(rpcPort))
 		if err != nil {
 			return nil, errors.New("[y9e4v8pvp7]" + err.Error())
@@ -83,6 +105,9 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	rNode.wBuf.Reset()
 	request._idMessage = newRandomMessageId()
 	request.encode(&rNode.wBuf)
+	if debugRpcLog {
+		udwLog.Log("[rpcNode call] send", getCmdString(request.cmd), request._idMessage)
+	}
 	_, err = rNode.conn.Write(rNode.wBuf.GetBytes())
 	if err != nil {
 		return nil, errors.New("[8srn1mzp1tkr]" + err.Error())
@@ -108,6 +133,9 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 		if response._idMessage != request._idMessage {
 			switch response.cmd {
 			case cmdOk:
+				if debugRpcLog {
+					udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage)
+				}
 				return response, nil
 			case cmdError:
 				return nil, errors.New("[mnh3apk1u8b] error[" + string(response.data) + "]")

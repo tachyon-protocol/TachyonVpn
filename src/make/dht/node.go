@@ -53,7 +53,7 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestId uint64, val
 			node.lock.Lock()
 			_, exist := node.knownNodes[_closestId]
 			if !exist {
-				if debugLog {
+				if debugDhtLog {
 					udwLog.Log("[findNode]", node.id, "add new id", _closestId)
 				}
 				node.knownNodes[_closestId] = true
@@ -104,19 +104,19 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 		_, exist := node.knownNodes[callerId]
 		if !exist {
 			node.knownNodes[callerId] = true
-			if debugLog {
+			if debugDhtLog {
 				udwLog.Log("[findLocal]", node.id, "add new id", callerId)
 			}
 		}
 		node.lock.Unlock()
 	}
 	if minId^targetId < node.id^targetId {
-		if debugLog {
+		if debugDhtLog {
 			udwLog.Log(node.id, "[findLocal]", targetId, "from caller", callerId, "closest:", minId)
 		}
 		return minId, nil
 	}
-	if debugLog {
+	if debugDhtLog {
 		udwLog.Log("[findLocal]", node.id, "closest is itself, target", targetId)
 	}
 	return node.id, nil
