@@ -10,10 +10,10 @@ import (
 )
 
 type peerNode struct {
-	id         uint64
-	lock       sync.RWMutex
-	keyMap     map[uint64][]byte
-	knownNodes map[uint64]bool
+	id              uint64
+	lock            sync.RWMutex
+	keyMap          map[uint64][]byte
+	kBucketOneLevel map[uint64]bool
 }
 
 func newPeerNode(id uint64, bootstrapNodeIds ...uint64) *peerNode {
@@ -21,12 +21,12 @@ func newPeerNode(id uint64, bootstrapNodeIds ...uint64) *peerNode {
 		id = udwRand.MustCryptoRandUint64()
 	}
 	n := &peerNode{
-		id:         id,
-		keyMap:     map[uint64][]byte{},
-		knownNodes: map[uint64]bool{},
+		id:              id,
+		keyMap:          map[uint64][]byte{},
+		kBucketOneLevel: map[uint64]bool{},
 	}
 	for _, id := range bootstrapNodeIds {
-		n.knownNodes[id] = true
+		n.kBucketOneLevel[id] = true
 	}
 	rpcInMemoryRegister(n)
 	n.findNode(n.id)
@@ -51,12 +51,12 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestId uint64, val
 		_closestId, _value := closestNode.findLocal(node.id, targetId, isValue)
 		if _closestId != node.id {
 			node.lock.Lock()
-			_, exist := node.knownNodes[_closestId]
+			_, exist := node.kBucketOneLevel[_closestId]
 			if !exist {
 				if debugDhtLog {
 					udwLog.Log("[findNode]", node.id, "add new id", _closestId)
 				}
-				node.knownNodes[_closestId] = true
+				node.kBucketOneLevel[_closestId] = true
 			}
 			node.lock.Unlock()
 		}
@@ -88,7 +88,7 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 	var min uint64 = math.MaxUint64
 	var minId = node.id
 	node.lock.RLock()
-	for id := range node.knownNodes {
+	for id := range node.kBucketOneLevel {
 		_min := targetId ^ id
 		if _min < min {
 			min = _min
@@ -101,9 +101,9 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 	}
 	if callerId == targetId {
 		node.lock.Lock()
-		_, exist := node.knownNodes[callerId]
+		_, exist := node.kBucketOneLevel[callerId]
 		if !exist {
-			node.knownNodes[callerId] = true
+			node.kBucketOneLevel[callerId] = true
 			if debugDhtLog {
 				udwLog.Log("[findLocal]", node.id, "add new id", callerId)
 			}

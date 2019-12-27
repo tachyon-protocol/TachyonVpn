@@ -42,7 +42,7 @@ func rpcInMemoryPrintlAllNode (){
 	for _, id := range ids {
 		node := gRpcInMemoryNodeMap[id]
 		node.lock.RLock()
-		fmt.Println("peerNode", node.id, "known:", node.knownNodes)
+		fmt.Println("peerNode", node.id, "known:", node.kBucketOneLevel)
 		node.lock.RUnlock()
 	}
 	gRpcInMemoryNodeMapLock.RUnlock()
