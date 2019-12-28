@@ -159,3 +159,41 @@ func (rNode *rpcNode) store(v []byte) error {
 	}
 	return nil
 }
+
+func (rNode *rpcNode) findNode(targetId uint64) (closestId uint64, err error) {
+	req := rpcMessage{
+		cmd:      cmdFindNode,
+		idSender: rNode.id,
+		data:     make([]byte, 8),
+	}
+	binary.BigEndian.PutUint64(req.data, targetId)
+	resp, err := rNode.call(req)
+	if err != nil {
+		return 0, errors.New("[7qf68n3q9g]" + err.Error())
+	}
+	if len(resp.data) != 8 {
+		return 0, errors.New("[fhf1b2xk9u9]")
+	}
+	return binary.BigEndian.Uint64(resp.data), nil
+}
+
+func (rNode *rpcNode) findValue(key uint64) (closestId uint64, value []byte, err error) {
+	req := rpcMessage{
+		cmd:      cmdFindValue,
+		idSender: rNode.id,
+		data:     make([]byte, 8),
+	}
+	binary.BigEndian.PutUint64(req.data, key)
+	resp, err := rNode.call(req)
+	if err != nil {
+		return 0, nil, errors.New("[xkx1veu5dqp]" + err.Error())
+	}
+	if len(resp.data) < 8 {
+		return 0, nil, errors.New("[kge9ma4b69]")
+	}
+	closestId = binary.BigEndian.Uint64(resp.data)
+	if len(resp.data) == 8 {
+		return closestId, nil, nil
+	}
+	return closestId, resp.data[8:], nil
+}
