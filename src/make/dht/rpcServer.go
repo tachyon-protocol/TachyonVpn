@@ -1,6 +1,7 @@
 package dht
 
 import (
+	"encoding/binary"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwLog"
@@ -27,22 +28,31 @@ func (node *peerNode) StartRpcServer() {
 			udwLog.Log("[xj4w3w2yh9]", err)
 			continue
 		}
+		response := rpcMessage{
+			cmd:        cmdOk,
+			idSender:   node.id,
+			_idMessage: request._idMessage,
+		}
 		switch request.cmd {
 		case cmdStore:
 			node.store(request.data)
-			response := rpcMessage{
-				cmd:      cmdOk,
-				idSender: node.id,
+		case cmdFindNode:
+			if len(request.data) != 8 {
+				response.cmd = cmdError
+				response.data = []byte("[95hs5hzw68]")
+				break
 			}
-			wBuf.Reset()
-			response.encode(wBuf)
-			_, err = packetConn.WriteTo(wBuf.GetBytes(),addr)
-			if err != nil {
-				udwLog.Log("[m3v73uce68]", err)
-				continue
-			}
+			targetId := binary.BigEndian.Uint64(request.data)
+			closestId, _ := node.findLocal(request.idSender, targetId, false)
 		default:
 			udwLog.Log("[8yty9m5r2v] unknown cmd[" + strconv.Itoa(int(request.cmd)) + "]")
+			continue
+		}
+		wBuf.Reset()
+		response.encode(wBuf)
+		_, err = packetConn.WriteTo(wBuf.GetBytes(), addr)
+		if err != nil {
+			udwLog.Log("[m3v73uce68]", addr, err)
 			continue
 		}
 	}

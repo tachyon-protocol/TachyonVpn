@@ -130,7 +130,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 			udwLog.Log("[tfq1jmc1a9v8]", err.Error())
 			continue
 		}
-		if response._idMessage != request._idMessage {
+		if response._idMessage == request._idMessage {
 			switch response.cmd {
 			case cmdOk:
 				if debugRpcLog {
