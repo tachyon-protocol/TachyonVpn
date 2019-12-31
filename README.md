@@ -20,9 +20,6 @@ A Decentralized VPN to Unblock the New Internet of Democracy, Privacy, Security 
 - run client `client -IsRelay -ServerIp [relay server's IP] -ServerTKey [relay server's TKey] -ExitServerClientId [exit server's ClientId] -ExitServerToken [exit server's TKey]`
 
 ## Releases
-### Updates
-* DHT store, query, lookup etc.
-* DHT V2 implementation in memory
 ### demo-v6 Support disconnection of client and GC client in server
 * Support disconnection of client
 * GC client in server
@@ -51,6 +48,27 @@ The image will be updated with Linux version.
 ### CheckHelper-v2
 ### demo-v2 Support P2P Relay Mode
 ### demo-v1 First Demo
+## Tachyon Protocol Plan
+### 2019.12.31
+* Improve test coverage of DHT RPC
+* Optimize reliability of routing tables
+### 2019-12-24
+* DHT store, query, lookup etc.
+* DHT V2 implementation in memory
+### 2019-12-20
+* DHT store, query, lookup etc.
+* DHT V2 implementation in memory
+### 2019-12-9
+* Support disconnection of client
+* GC client in server
+* Support relay mode in Router server
+* DHT Demo V1
+### 2019-12-2
+* Deploy router server
+* automatic RPC generator
+* Improve stability of connection
+* Optimize performance of memory and bandwidth
+* Testing of multiple clients and VPE servers
 
 ## Details of demo version
 * Router will be a single server for test in this version
