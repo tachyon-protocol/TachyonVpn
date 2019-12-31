@@ -23,6 +23,9 @@ func (node *peerNode) StartRpcServer() (close func()) {
 	wBuf := udwBytes.NewBufWriter(nil)
 	go func() {
 		for {
+			if closer.IsClose() {
+				return
+			}
 			n, addr, err := packetConn.ReadFrom(rBuf)
 			if err != nil {
 				udwLog.Log("[g7ath8f3dq]", err)
@@ -44,9 +47,8 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				node.store(request.data)
 			case cmdFindNode, cmdFindValue:
 				if len(request.data) != 8 {
-					response.cmd = cmdError
-					response.data = []byte("[95hs5hzw68] len(request.data) != 8")
-					break
+					udwLog.Log("[95hs5hzw68] len(request.data) != 8")
+					continue
 				}
 				isValue := request.cmd == cmdFindValue
 				targetId := binary.BigEndian.Uint64(request.data)
