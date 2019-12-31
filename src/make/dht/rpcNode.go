@@ -14,18 +14,18 @@ import (
 )
 
 const (
-	cmdPing      byte = 0
+	//cmdPing      byte = 0
 	cmdStore     byte = 1
 	cmdFindNode  byte = 2
 	cmdFindValue byte = 3
 	cmdOk        byte = 4
-	cmdError     byte = 5
+	//cmdError     byte = 5
 )
 
 func getCmdString(cmd byte) string {
 	switch cmd {
-	case cmdPing:
-		return "PING"
+	//case cmdPing:
+	//	return "PING"
 	case cmdStore:
 		return "STORE"
 	case cmdFindNode:
@@ -34,8 +34,8 @@ func getCmdString(cmd byte) string {
 		return "FIND_VALUE"
 	case cmdOk:
 		return "OK"
-	case cmdError:
-		return "ERROR"
+	//case cmdError:
+	//	return "ERROR"
 	default:
 		return "UNKNOWN"
 	}
@@ -86,6 +86,8 @@ type rpcNode struct {
 	rBuf   []byte
 }
 
+const errorRpcCallResponseTimeout = "hgy1hkd1w7xs"
+
 func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error) {
 	rNode.lock.Lock()
 	defer rNode.lock.Unlock()
@@ -122,7 +124,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	for {
 		n, _err := rNode.conn.Read(rNode.rBuf)
 		if _err != nil {
-			return nil, errors.New("[hgy1hkd1w7xs]" + _err.Error())
+			return nil, errors.New("[" + errorRpcCallResponseTimeout + "]" + _err.Error())
 		}
 		response = &rpcMessage{}
 		err = response.decode(rNode.rBuf[:n])
@@ -137,10 +139,13 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 					udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage)
 				}
 				return response, nil
-			case cmdError:
-				return nil, errors.New("[mnh3apk1u8b] error[" + string(response.data) + "]")
+			//case cmdError:
+			//	return nil, errors.New("[mnh3apk1u8b] error[" + string(response.data) + "]")
 			default:
-				return nil, errors.New("[45rau1mr258] unknown cmd[" + strconv.Itoa(int(response.cmd)) + "] data[" + string(response.data) + "]")
+				if debugRpcLog {
+					udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage, "data:[", string(response.data), "]")
+				}
+				continue
 			}
 		}
 		udwLog.Log("[7dwn1kjg1uqe] _idMessage[" + strconv.Itoa(int(response._idMessage)) + "] not match request[" + strconv.Itoa(int(request._idMessage)) + "]")

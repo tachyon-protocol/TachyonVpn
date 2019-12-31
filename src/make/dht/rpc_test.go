@@ -1,11 +1,14 @@
 package dht
 
 import (
+	"encoding/binary"
 	"errors"
+	"github.com/tachyon-protocol/udw/udwClose"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwTest"
 	"net"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -73,7 +76,7 @@ func TestRpcNodeFindValue(t *testing.T) {
 
 var responseTimeoutError = errors.New("timeout")
 
-func sendBinaryToLocalRpcServer(request []byte, afterWrite func(conn net.Conn) (isReturn bool)) (response []byte, err error) {
+func debugClientSend(request []byte, afterWrite func(conn net.Conn) (isReturn bool)) (response []byte, err error) {
 	conn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(rpcPort))
 	udwErr.PanicIfError(err)
 	_, err = conn.Write(request)
@@ -94,19 +97,105 @@ func sendBinaryToLocalRpcServer(request []byte, afterWrite func(conn net.Conn) (
 	return buf[:n], nil
 }
 
-func TestRpcNodeClientError(t *testing.T) {
+func TestRpcNodeErrorClient(t *testing.T) {
 	node := newPeerNode(0)
 	closeRpcServer := node.StartRpcServer()
 	defer closeRpcServer()
-	_, err := sendBinaryToLocalRpcServer([]byte("1"), nil)
-	udwTest.Equal(err.Error(), responseTimeoutError.Error())
-	_, err = sendBinaryToLocalRpcServer([]byte{0x02, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, nil)
-	udwTest.Equal(err.Error(), responseTimeoutError.Error())
-	_, err = sendBinaryToLocalRpcServer([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, nil)
-	udwTest.Equal(err.Error(), responseTimeoutError.Error())
-	_, err = sendBinaryToLocalRpcServer([]byte{0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}, func(conn net.Conn) bool {
+	errMsg := ""
+	_, err := debugClientSend([]byte("1"), nil)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Equal(errMsg, responseTimeoutError.Error())
+	_, err = debugClientSend([]byte{0x02, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, nil)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Equal(errMsg, responseTimeoutError.Error())
+	_, err = debugClientSend([]byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}, nil)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Equal(errMsg, responseTimeoutError.Error())
+	_, err = debugClientSend([]byte{0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}, func(conn net.Conn) bool {
 		_ = conn.Close()
 		return true
 	})
 	udwTest.Equal(err, nil)
+}
+
+func debugServerRespond(correctIdMessage bool, response []byte) (close func()) {
+	closer := udwClose.NewCloser()
+	packetConn, err := net.ListenPacket("udp", ":"+strconv.Itoa(rpcPort))
+	udwErr.PanicIfError(err)
+	closer.AddOnClose(func() {
+		_ = packetConn.Close()
+	})
+	go func() {
+		rBuf := make([]byte, 2<<10)
+		n, addr, err := packetConn.ReadFrom(rBuf)
+		udwErr.PanicIfError(err)
+		request := rpcMessage{}
+		err = request.decode(rBuf[:n])
+		udwErr.PanicIfError(err)
+		if correctIdMessage && len(response) > 5 {
+			binary.BigEndian.PutUint32(response[1:5], request._idMessage)
+		}
+		_, err = packetConn.WriteTo(response, addr)
+		udwErr.PanicIfError(err)
+	}()
+	return closer.Close
+}
+
+func TestRpcNodeErrorServer(t *testing.T) {
+	rNode2 := rpcNode{
+		id: 1,
+		ip: "127.0.0.1",
+	}
+	errMsg := ""
+	_, err := rNode2.findNode(2)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Ok(strings.Contains(errMsg, errorRpcCallResponseTimeout))
+
+	_close := debugServerRespond(false, []byte("1"))
+	_, err = rNode2.findNode(2)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Ok(strings.Contains(errMsg, errorRpcCallResponseTimeout))
+	_close()
+
+	_close = debugServerRespond(true, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	err = rNode2.store([]byte("123"))
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Ok(strings.Contains(errMsg, errorRpcCallResponseTimeout))
+	_close()
+
+	_close = debugServerRespond(false, []byte{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	_, _, err = rNode2.findValue(2)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Ok(strings.Contains(errMsg, errorRpcCallResponseTimeout))
+	_close()
+
+	_close = debugServerRespond(true, []byte{cmdOk, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	_, err = rNode2.findNode(2)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Ok(strings.Contains(errMsg, "fhf1b2xk9u9"))
+	_close()
+
+	_close = debugServerRespond(true, []byte{cmdOk, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff})
+	_, _, err = rNode2.findValue(2)
+	if err != nil {
+		errMsg = err.Error()
+	}
+	udwTest.Ok(strings.Contains(errMsg, "kge9ma4b69"))
+	_close()
 }
