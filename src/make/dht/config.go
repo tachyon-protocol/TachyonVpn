@@ -1,7 +1,7 @@
 package dht
 
 const (
-	k           = 1
+	k           = 3
 	debugDhtLog = true
 	debugRpcLog = true
 )

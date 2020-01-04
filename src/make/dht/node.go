@@ -4,9 +4,9 @@ import (
 	"encoding/binary"
 	"github.com/tachyon-protocol/udw/udwCryptoSha3"
 	"github.com/tachyon-protocol/udw/udwLog"
-	"github.com/tachyon-protocol/udw/udwMap"
+	"github.com/tachyon-protocol/udw/udwMath"
 	"github.com/tachyon-protocol/udw/udwRand"
-	"github.com/tachyon-protocol/udw/udwSort"
+	"github.com/tachyon-protocol/udw/udwSortedMap"
 	"math"
 	"sync"
 )
@@ -41,7 +41,7 @@ func newPeerNode(id uint64, bootstrapNodeIds ...uint64) *peerNode {
 	return n
 }
 
-func sizeOfCommonPrefix(a,b uint64) int {
+func sizeOfCommonPrefix(a, b uint64) int {
 	pl := 64
 	for {
 		if a == b {
@@ -59,45 +59,65 @@ func hash(v []byte) uint64 {
 	return binary.LittleEndian.Uint64(digest[:])
 }
 
-func (node *peerNode) find(targetId uint64, isValue bool) (closestK map[uint64]bool, value []byte) {
-	closestId, value = node.findLocal(node.id, targetId, isValue)
+func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint64, value []byte) {
+	closestIdList, value = node.findLocal(node.id, targetId, isValue)
+	if len(closestIdList) == 0 {
+		return nil, value
+	}
 	if isValue && value != nil {
 		return nil, value
 	}
-	if !isValue && targetId == closestId {
-		return nil, nil
+	if !isValue {
+		for _, id := range closestIdList {
+			if id == targetId {
+				return closestIdList, nil
+			}
+		}
+	}
+	var (
+		idToDistanceMap           = udwSortedMap.NewUint64ToUint64Map()
+		minDistance        uint64 = math.MaxUint64
+		requestedNodeIdMap        = map[uint64]bool{}
+	)
+	for _, id := range closestIdList {
+		distance := targetId ^ id
+		idToDistanceMap.Set(id, distance)
+		if distance < minDistance {
+			minDistance = distance
+		}
 	}
 	for {
-		closestNode := rpcInMemoryGetNode(closestId)
-		_closestId, _value := closestNode.findLocal(node.id, targetId, isValue)
-		if _closestId != node.id {
-			node.lock.Lock()
-			_, exist := node.kBuckets[_closestId]
-			if !exist {
-				if debugDhtLog {
-					udwLog.Log("[findNode]", node.id, "add new id", _closestId)
-				}
-				node.kBuckets[_closestId] = true
+		_minDistance := minDistance
+		closestIdList = idToDistanceMap.KeysByValueAsc()
+		for _, id := range closestIdList {
+			if requestedNodeIdMap[id] {
+				continue
 			}
-			node.lock.Unlock()
+			requestedNodeIdMap[id] = true
+			_node := rpcInMemoryGetNode(id)
+			_closestIdList, _value := _node.findLocal(node.id, targetId, isValue)
+			node.updateBuckets(_closestIdList...)
+			if isValue && _value != nil {
+				return _closestIdList, _value
+			}
+			for _, id := range _closestIdList {
+				if !isValue && id == targetId {
+					return _closestIdList, nil
+				}
+				distance := targetId ^ id
+				idToDistanceMap.Set(id, distance)
+				if distance < minDistance {
+					minDistance = distance
+				}
+			}
 		}
-		if isValue && _value != nil {
-			return _closestId, _value
-		}
-		if _closestId == closestId {
-			return closestId, nil
-		}
-		closestId = _closestId
-		if closestId == targetId {
-			return targetId, nil
-		}
-		if closestId == node.id {
-			return node.id, nil
+		if minDistance == _minDistance {
+			return closestIdList[:udwMath.IntMin(len(closestIdList), k)], value
 		}
 	}
 }
 
-func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) (closestKMap map[uint64]uint64, value []byte) {
+func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) (closestIdList []uint64, value []byte) {
 	if isValue {
 		node.lock.RLock()
 		v, exist := node.keyMap[targetId]
@@ -106,52 +126,45 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 			return nil, v
 		}
 	}
+	idToDistanceMap := udwSortedMap.NewUint64ToUint64Map()
 	node.lock.RLock()
 	for _, km := range node.kBuckets {
 		for id := range km {
-			distance := targetId ^ id
-			if distance < maxDistance {
-				if closestKMap == nil {
-					closestKMap = map[uint64]uint64{}
-				}
-				closestKMap[id] = distance
-				if len(closestKMap) > k {
-					delete(closestKMap, maxId)
-					for id := range closestKMap {
-					}
-				}
-			}
-			//if distance < min {
-			//	min = distance
-			//	minId = id
-			//}
+			idToDistanceMap.Set(id, targetId^id)
 		}
 	}
 	node.lock.RUnlock()
-	if callerId == node.id {
-		return minId, nil
+	closestIdList = idToDistanceMap.KeysByValueAsc()
+	if debugDhtLog {
+		udwLog.Log("[findLocal]", node.id, "target", targetId, "closest id rank: caller", callerId)
+		for _, id := range closestIdList {
+			distance, _ := idToDistanceMap.Get(id)
+			udwLog.Log("		", id, "distance", distance)
+		}
 	}
 	if callerId == targetId {
-		node.lock.Lock()
-		_, exist := node.kBuckets[callerId]
-		if !exist {
-			node.kBuckets[callerId] = true
+		node.updateBuckets(callerId)
+	}
+	return closestIdList[:udwMath.IntMin(len(closestIdList), k)], nil
+}
+
+func (node *peerNode) updateBuckets(ids ...uint64) {
+	node.lock.Lock()
+	for _, id := range ids {
+		cps := sizeOfCommonPrefix(id, node.id)
+		m := node.kBuckets[id]
+		if m == nil {
+			m = map[uint64]bool{}
+		}
+		if !m[id] {
+			m[id] = true
+			node.kBuckets[cps] = m
 			if debugDhtLog {
-				udwLog.Log("[findLocal]", node.id, "add new id", callerId)
+				udwLog.Log("[updateBuckets]", node.id, "add new id", id)
 			}
 		}
-		node.lock.Unlock()
 	}
-	if minId^targetId < node.id^targetId {
-		if debugDhtLog {
-			udwLog.Log(node.id, "[findLocal]", targetId, "from caller", callerId, "closest:", minId)
-		}
-		return minId, nil
-	}
-	if debugDhtLog {
-		udwLog.Log("[findLocal]", node.id, "closest is itself, target", targetId)
-	}
-	return node.id, nil
+	node.lock.Unlock()
 }
 
 //TODO ping
@@ -162,9 +175,9 @@ func (node *peerNode) store(v []byte) {
 	node.lock.Unlock()
 }
 
-func (node *peerNode) findNode(targetId uint64) (closestId uint64) {
-	closestId, _ = node.find(targetId, false)
-	return closestId
+func (node *peerNode) findNode(targetId uint64) (closestIdList []uint64) {
+	closestIdList, _ = node.find(targetId, false)
+	return closestIdList
 }
 
 func (node *peerNode) findValue(key uint64) (value []byte) {
