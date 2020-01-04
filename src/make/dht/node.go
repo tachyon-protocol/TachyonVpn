@@ -61,10 +61,10 @@ func hash(v []byte) uint64 {
 
 func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint64, value []byte) {
 	closestIdList, value = node.findLocal(node.id, targetId, isValue)
-	if len(closestIdList) == 0 {
+	if isValue && value != nil {
 		return nil, value
 	}
-	if isValue && value != nil {
+	if len(closestIdList) == 0 {
 		return nil, value
 	}
 	if !isValue {
@@ -139,7 +139,7 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 		udwLog.Log("[findLocal]", node.id, "target", targetId, "closest id rank: caller", callerId)
 		for _, id := range closestIdList {
 			distance, _ := idToDistanceMap.Get(id)
-			udwLog.Log("		", id, "distance", distance)
+			udwLog.Log("           ", id, "distance", distance)
 		}
 	}
 	if callerId == targetId {
@@ -155,9 +155,6 @@ func (node *peerNode) updateBuckets(ids ...uint64) {
 			continue
 		}
 		cps := sizeOfCommonPrefix(id, node.id)
-		if debugDhtLog {
-			udwLog.Log("[updateBuckets]", node.id, id,"cps", cps)
-		}
 		m := node.kBuckets[cps]
 		if m == nil {
 			m = map[uint64]bool{}
@@ -166,7 +163,7 @@ func (node *peerNode) updateBuckets(ids ...uint64) {
 			m[id] = true
 			node.kBuckets[cps] = m
 			if debugDhtLog {
-				udwLog.Log("[updateBuckets]", node.id, "add new id", id)
+				udwLog.Log("[updateBuckets]", node.id, "add new id", id, "cps", cps)
 			}
 		}
 	}

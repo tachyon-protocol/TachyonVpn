@@ -11,7 +11,7 @@ var (
 	gRpcInMemoryNodeMap     = map[uint64]*peerNode{}
 )
 
-func rpcInMemoryReset(){
+func rpcInMemoryReset() {
 	gRpcInMemoryNodeMapLock.Lock()
 	gRpcInMemoryNodeMap = map[uint64]*peerNode{}
 	gRpcInMemoryNodeMapLock.Unlock()
@@ -30,20 +30,31 @@ func rpcInMemoryRegister(n *peerNode) {
 	gRpcInMemoryNodeMapLock.Unlock()
 }
 
-func rpcInMemoryPrintlAllNode (){
+func rpcInMemoryPrintAllNode() {
+	fmt.Println("---------------Network---------------")
 	gRpcInMemoryNodeMapLock.RLock()
 	var ids []uint64
 	for id := range gRpcInMemoryNodeMap {
 		ids = append(ids, id)
 	}
 	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] <ids[j]
+		return ids[i] < ids[j]
 	})
 	for _, id := range ids {
 		node := gRpcInMemoryNodeMap[id]
 		node.lock.RLock()
-		fmt.Println("peerNode", node.id, "known:", node.kBuckets)
+		fmt.Println(node.id, "k-buckets:")
+		for cps, m := range node.kBuckets {
+			if m == nil {
+				continue
+			}
+			fmt.Println("	", "cps", cps)
+			for id := range m {
+				fmt.Println("		", id)
+			}
+		}
 		node.lock.RUnlock()
 	}
 	gRpcInMemoryNodeMapLock.RUnlock()
+	fmt.Println("-------------------------------------")
 }
