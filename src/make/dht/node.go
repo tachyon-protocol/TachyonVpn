@@ -151,8 +151,14 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 func (node *peerNode) updateBuckets(ids ...uint64) {
 	node.lock.Lock()
 	for _, id := range ids {
+		if id == node.id {
+			continue
+		}
 		cps := sizeOfCommonPrefix(id, node.id)
-		m := node.kBuckets[id]
+		if debugDhtLog {
+			udwLog.Log("[updateBuckets]", node.id, id,"cps", cps)
+		}
+		m := node.kBuckets[cps]
 		if m == nil {
 			m = map[uint64]bool{}
 		}
