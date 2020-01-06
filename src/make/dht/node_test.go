@@ -19,7 +19,7 @@ func newTestNetwork() *peerNode {
 
 func TestRandomNetwork(t *testing.T) {
 	k = 2
-	for i := 0; i < 1<<10; i++ {
+	for i := 0; i < 3<<10; i++ {
 		rpcInMemoryReset()
 		node0 := newPeerNode(0)
 		fmt.Println(">>> node0",node0.id)
