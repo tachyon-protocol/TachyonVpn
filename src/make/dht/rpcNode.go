@@ -67,17 +67,18 @@ func (packet *rpcMessage) encode(buf *udwBytes.BufWriter) {
 }
 
 func (packet *rpcMessage) parseData() (closestIdList []uint64, value []byte, err error) {
-	if len(packet.data) > 1 {
+	if len(packet.data) < 1 {
 		return nil, nil, errors.New("[88n4mc5439]")
 	}
 	size := int(packet.data[0])
 	if size > 0 {
-		closestIdList = make([]uint64, size)
+		closestIdList = make([]uint64, 0, size)
 		for i := 0; i < size; i++ {
-			if i+1 >= len(packet.data) || i+1+8 >= len(packet.data) {
+			if 1+i*8 >= len(packet.data) || 1+i*8+8 > len(packet.data) {
 				udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(packet.data) is", len(packet.data))
 				return closestIdList, nil, nil
 			}
+			closestIdList = append(closestIdList, binary.BigEndian.Uint64(packet.data[i+1:i+1+8]))
 		}
 	}
 	value = packet.data[1+size*8:]

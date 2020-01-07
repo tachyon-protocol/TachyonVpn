@@ -1,49 +1,43 @@
 package dht
 
-//import (
-//	"encoding/binary"
-//	"errors"
-//	"github.com/tachyon-protocol/udw/udwClose"
-//	"github.com/tachyon-protocol/udw/udwErr"
-//	"github.com/tachyon-protocol/udw/udwTest"
-//	"net"
-//	"strconv"
-//	"strings"
-//	"testing"
-//	"time"
-//)
-//
-//func TestRpcNodeStore(t *testing.T) {
-//	node := newPeerNode(1)
-//	closeRpcServer := node.StartRpcServer()
-//	defer closeRpcServer()
-//	rNode := rpcNode{
-//		id: node.id,
-//		ip: "127.0.0.1",
-//	}
-//	const data = "Hyperion"
-//	key := hash([]byte(data))
-//	err := rNode.store([]byte(data))
-//	udwTest.Equal(err, nil)
-//	node.lock.RLock()
-//	v := node.keyMap[key]
-//	node.lock.RUnlock()
-//	udwTest.Equal(string(v), data)
-//}
-//
-//func TestRpcNodeFindNode(t *testing.T) {
-//	node1 := newPeerNode(1)
-//	node2 := newPeerNode(2, node1.id)
-//	closeRpcServer := node2.StartRpcServer()
-//	defer closeRpcServer()
-//	rNode := rpcNode{
-//		id: node2.id,
-//		ip: "127.0.0.1",
-//	}
-//	closestId, err := rNode.findNode(1)
-//	udwErr.PanicIfError(err)
-//	udwTest.Equal(closestId, uint64(1))
-//}
+import (
+	"github.com/tachyon-protocol/udw/udwErr"
+	"github.com/tachyon-protocol/udw/udwTest"
+	"testing"
+)
+
+func TestRpcNodeStore(t *testing.T) {
+	node := newPeerNode(1)
+	closeRpcServer := node.StartRpcServer()
+	defer closeRpcServer()
+	rNode := rpcNode{
+		id: node.id,
+		ip: "127.0.0.1",
+	}
+	const data = "Hyperion"
+	key := hash([]byte(data))
+	err := rNode.store([]byte(data))
+	udwTest.Equal(err, nil)
+	node.lock.RLock()
+	v := node.keyMap[key]
+	node.lock.RUnlock()
+	udwTest.Equal(string(v), data)
+}
+
+func TestRpcNodeFindNode(t *testing.T) {
+	node1 := newPeerNode(1)
+	node2 := newPeerNode(2, node1.id)
+	closeRpcServer := node2.StartRpcServer()
+	defer closeRpcServer()
+	rNode := rpcNode{
+		id: node2.id,
+		ip: "127.0.0.1",
+	}
+	closestIdList, err := rNode.findNode(1)
+	udwErr.PanicIfError(err)
+	udwTest.Equal(len(closestIdList), 1)
+	udwTest.Equal(closestIdList[0], uint64(1))
+}
 //
 //func TestRpcNodeFindValue(t *testing.T) {
 //	const data = "Hyperion"
