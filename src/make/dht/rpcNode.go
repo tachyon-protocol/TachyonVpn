@@ -66,6 +66,24 @@ func (packet *rpcMessage) encode(buf *udwBytes.BufWriter) {
 	buf.Write_(packet.data)
 }
 
+func (packet *rpcMessage) parseData() (closestIdList []uint64, value []byte, err error) {
+	if len(packet.data) > 1 {
+		return nil, nil, errors.New("[88n4mc5439]")
+	}
+	size := int(packet.data[0])
+	if size > 0 {
+		closestIdList = make([]uint64, size)
+		for i := 0; i < size; i++ {
+			if i+1 >= len(packet.data) || i+1+8 >= len(packet.data) {
+				udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(packet.data) is", len(packet.data))
+				return closestIdList, nil, nil
+			}
+		}
+	}
+	value = packet.data[1+size*8:]
+	return closestIdList, value, nil
+}
+
 func newRandomMessageId() uint32 {
 	var tmpBuf [4]byte
 	_, err := rand.Read(tmpBuf[:])
@@ -165,7 +183,7 @@ func (rNode *rpcNode) store(v []byte) error {
 	return nil
 }
 
-func (rNode *rpcNode) findNode(targetId uint64) (closestId uint64, err error) {
+func (rNode *rpcNode) findNode(targetId uint64) (closestIdList []uint64, err error) {
 	req := rpcMessage{
 		cmd:      cmdFindNode,
 		idSender: rNode.id,
@@ -174,15 +192,13 @@ func (rNode *rpcNode) findNode(targetId uint64) (closestId uint64, err error) {
 	binary.BigEndian.PutUint64(req.data, targetId)
 	resp, err := rNode.call(req)
 	if err != nil {
-		return 0, errors.New("[7qf68n3q9g]" + err.Error())
+		return nil, errors.New("[7qf68n3q9g]" + err.Error())
 	}
-	if len(resp.data) != 8 {
-		return 0, errors.New("[fhf1b2xk9u9]")
-	}
-	return binary.BigEndian.Uint64(resp.data), nil
+	closestIdList, _, err = resp.parseData()
+	return
 }
 
-func (rNode *rpcNode) findValue(key uint64) (closestId uint64, value []byte, err error) {
+func (rNode *rpcNode) findValue(key uint64) (closestIdList []uint64, value []byte, err error) {
 	req := rpcMessage{
 		cmd:      cmdFindValue,
 		idSender: rNode.id,
@@ -191,14 +207,7 @@ func (rNode *rpcNode) findValue(key uint64) (closestId uint64, value []byte, err
 	binary.BigEndian.PutUint64(req.data, key)
 	resp, err := rNode.call(req)
 	if err != nil {
-		return 0, nil, errors.New("[xkx1veu5dqp]" + err.Error())
+		return nil, nil, errors.New("[xkx1veu5dqp]" + err.Error())
 	}
-	if len(resp.data) < 8 {
-		return 0, nil, errors.New("[kge9ma4b69]")
-	}
-	closestId = binary.BigEndian.Uint64(resp.data)
-	if len(resp.data) == 8 {
-		return closestId, nil, nil
-	}
-	return closestId, resp.data[8:], nil
+	return resp.parseData()
 }
