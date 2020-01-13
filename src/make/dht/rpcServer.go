@@ -53,14 +53,14 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				isValue := request.cmd == cmdFindValue
 				targetId := binary.BigEndian.Uint64(request.data)
 				closestIdList, value := node.findLocal(request.idSender, targetId, isValue)
-				bufSize := 1+8*len(closestIdList)+len(value)
+				bufSize := 1 + 8*len(closestIdList) + len(value)
 				response.data = make([]byte, bufSize)
 				response.data[0] = byte(len(closestIdList))
-				for _, id := range closestIdList {
-					binary.BigEndian.PutUint64(response.data, id)
+				for i, id := range closestIdList {
+					binary.BigEndian.PutUint64(response.data[1+i*8:1+i*8+8], id)
 				}
 				if len(value) > 0 {
-					copy(response.data[8:],value)
+					copy(response.data[1+8*len(closestIdList):], value)
 				}
 			default:
 				udwLog.Log("[8yty9m5r2v] unknown cmd[" + strconv.Itoa(int(request.cmd)) + "]")
