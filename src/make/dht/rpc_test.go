@@ -1,9 +1,13 @@
 package dht
 
 import (
+	"errors"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwTest"
+	"net"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func TestRpcNodeStore(t *testing.T) {
@@ -68,28 +72,28 @@ func TestRpcNodeFindValue(t *testing.T) {
 	udwTest.Equal(string(value), data)
 }
 
-//var responseTimeoutError = errors.New("timeout")
-//
-//func debugClientSend(request []byte, afterWrite func(conn net.Conn) (isReturn bool)) (response []byte, err error) {
-//	conn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(rpcPort))
-//	udwErr.PanicIfError(err)
-//	_, err = conn.Write(request)
-//	udwErr.PanicIfError(err)
-//	if afterWrite != nil {
-//		isReturn := afterWrite(conn)
-//		if isReturn {
-//			return
-//		}
-//	}
-//	buf := make([]byte, 2<<10)
-//	err = conn.SetDeadline(time.Now().Add(time.Millisecond * 300))
-//	udwErr.PanicIfError(err)
-//	n, err := conn.Read(buf)
-//	if err != nil {
-//		return nil, responseTimeoutError
-//	}
-//	return buf[:n], nil
-//}
+var responseTimeoutError = errors.New("timeout")
+
+func debugClientSend(request []byte, afterWrite func(conn net.Conn) (isReturn bool)) (response []byte, err error) {
+	conn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(rpcPort))
+	udwErr.PanicIfError(err)
+	_, err = conn.Write(request)
+	udwErr.PanicIfError(err)
+	if afterWrite != nil {
+		isReturn := afterWrite(conn)
+		if isReturn {
+			return
+		}
+	}
+	buf := make([]byte, 2<<10)
+	err = conn.SetDeadline(time.Now().Add(time.Millisecond * 300))
+	udwErr.PanicIfError(err)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return nil, responseTimeoutError
+	}
+	return buf[:n], nil
+}
 //
 //func TestRpcNodeErrorClient(t *testing.T) {
 //	node := newPeerNode(0)
