@@ -4,10 +4,7 @@ import (
 	"errors"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwTest"
-	"net"
-	"strconv"
 	"testing"
-	"time"
 )
 
 func TestRpcNodeStore(t *testing.T) {
@@ -54,10 +51,12 @@ func TestRpcNodeFindValue(t *testing.T) {
 		id: node2.id,
 		ip: "127.0.0.1",
 	}
-	closestId, value, err := rNode2.findValue(key)
+	closestIdList, value, err := rNode2.findValue(key)
 	udwErr.PanicIfError(err)
+	udwTest.Equal(len(closestIdList), 1)
+	closestId := closestIdList[0]
 	udwTest.Equal(closestId, node1.id)
-	udwTest.Equal(value, nil)
+	udwTest.Equal(value, []byte{})
 	closeRpcServerNode2()
 
 	closeRpcServerNode1 := node1.StartRpcServer()
@@ -66,34 +65,34 @@ func TestRpcNodeFindValue(t *testing.T) {
 		id: closestId,
 		ip: "127.0.0.1",
 	}
-	closestId, value, err = rNodeClosest.findValue(key)
+	closestIdList, value, err = rNodeClosest.findValue(key)
 	udwErr.PanicIfError(err)
-	udwTest.Equal(closestId, node1.id)
+	udwTest.Ok(len(closestIdList)==0)
 	udwTest.Equal(string(value), data)
 }
 
 var responseTimeoutError = errors.New("timeout")
 
-func debugClientSend(request []byte, afterWrite func(conn net.Conn) (isReturn bool)) (response []byte, err error) {
-	conn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(rpcPort))
-	udwErr.PanicIfError(err)
-	_, err = conn.Write(request)
-	udwErr.PanicIfError(err)
-	if afterWrite != nil {
-		isReturn := afterWrite(conn)
-		if isReturn {
-			return
-		}
-	}
-	buf := make([]byte, 2<<10)
-	err = conn.SetDeadline(time.Now().Add(time.Millisecond * 300))
-	udwErr.PanicIfError(err)
-	n, err := conn.Read(buf)
-	if err != nil {
-		return nil, responseTimeoutError
-	}
-	return buf[:n], nil
-}
+//func debugClientSend(request []byte, afterWrite func(conn net.Conn) (isReturn bool)) (response []byte, err error) {
+//	conn, err := net.Dial("udp", "127.0.0.1:"+strconv.Itoa(rpcPort))
+//	udwErr.PanicIfError(err)
+//	_, err = conn.Write(request)
+//	udwErr.PanicIfError(err)
+//	if afterWrite != nil {
+//		isReturn := afterWrite(conn)
+//		if isReturn {
+//			return
+//		}
+//	}
+//	buf := make([]byte, 2<<10)
+//	err = conn.SetDeadline(time.Now().Add(time.Millisecond * 300))
+//	udwErr.PanicIfError(err)
+//	n, err := conn.Read(buf)
+//	if err != nil {
+//		return nil, responseTimeoutError
+//	}
+//	return buf[:n], nil
+//}
 //
 //func TestRpcNodeErrorClient(t *testing.T) {
 //	node := newPeerNode(0)
