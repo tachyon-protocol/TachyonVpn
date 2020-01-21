@@ -49,11 +49,14 @@ The image will be updated with Linux version.
 ### demo-v2 Support P2P Relay Mode
 ### demo-v1 First Demo
 ## Tachyon Protocol Plan
+### 2020-1-21
+* DHT RPC API: Ping
+* DHT k-buckets GC
 ### 2020.1.14
 * Refactor k results of DHT RPC API: FIND_NODE/FIND_VALUE
-### 2020.1.7
+### 2020-1-7
 * Improve reliability of DHT RPC's network performance
-### 2019.12.31
+### 2019-12-31
 * Improve test coverage of DHT RPC
 * Optimize reliability of routing tables
 ### 2019-12-24
