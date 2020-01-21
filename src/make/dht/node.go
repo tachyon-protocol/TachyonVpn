@@ -33,16 +33,7 @@ func newPeerNode(req newPeerNodeRequest) *peerNode {
 		keyMap:   map[uint64][]byte{},
 		kBuckets: [64]map[uint64]*rpcNode{},
 	}
-	n.updateBuckets()
-	for _, id := range bootstrapNodeIds {
-		index := sizeOfCommonPrefix(n.id, id)
-		m := n.kBuckets[index]
-		if m == nil {
-			m = map[uint64]bool{}
-		}
-		m[id] = true
-		n.kBuckets[index] = m
-	}
+	n.updateBuckets(req.bootstrapRpcNodeList)
 	rpcInMemoryRegister(n)
 	n.findNode(n.id)
 	return n
@@ -157,20 +148,23 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 
 func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 	node.lock.Lock()
-	for _, id := range rpcNodeList {
-		if id == node.id {
+	for _, rNode := range rpcNodeList {
+		if rNode == nil {
 			continue
 		}
-		cps := sizeOfCommonPrefix(id, node.id)
+		if rNode.id == node.id {
+			continue
+		}
+		cps := sizeOfCommonPrefix(rNode.id, node.id)
 		m := node.kBuckets[cps]
 		if m == nil {
-			m = map[uint64]bool{}
+			m = map[uint64]*rpcNode{}
 		}
-		if !m[id] {
-			m[id] = true
+		if m[rNode.id] == nil {
+			m[rNode.id] = rNode
 			node.kBuckets[cps] = m
 			if debugDhtLog {
-				udwLog.Log("[updateBuckets]", node.id, "add new id", id, "cps", cps)
+				udwLog.Log("[updateBuckets]", node.id, "add new rpcNode", rNode.id, "cps", cps)
 			}
 		}
 	}
