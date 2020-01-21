@@ -15,18 +15,25 @@ type peerNode struct {
 	id       uint64
 	lock     sync.RWMutex
 	keyMap   map[uint64][]byte
-	kBuckets [64]map[uint64]bool
+	kBuckets [64]map[uint64]*rpcNode
 }
 
-func newPeerNode(id uint64, bootstrapNodeIds ...uint64) *peerNode {
-	if id == 0 {
-		id = udwRand.MustCryptoRandUint64()
+type newPeerNodeRequest struct {
+	id uint64
+	port uint32
+	bootstrapRpcNodeList []*rpcNode
+}
+
+func newPeerNode(req newPeerNodeRequest) *peerNode {
+	if req.id == 0 {
+		req.id = udwRand.MustCryptoRandUint64()
 	}
 	n := &peerNode{
-		id:       id,
+		id:       req.id,
 		keyMap:   map[uint64][]byte{},
-		kBuckets: [64]map[uint64]bool{},
+		kBuckets: [64]map[uint64]*rpcNode{},
 	}
+	n.updateBuckets()
 	for _, id := range bootstrapNodeIds {
 		index := sizeOfCommonPrefix(n.id, id)
 		m := n.kBuckets[index]
@@ -148,9 +155,9 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 	return closestIdList[:udwMath.IntMin(len(closestIdList), k)], nil
 }
 
-func (node *peerNode) updateBuckets(ids ...uint64) {
+func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 	node.lock.Lock()
-	for _, id := range ids {
+	for _, id := range rpcNodeList {
 		if id == node.id {
 			continue
 		}

@@ -98,6 +98,7 @@ func newRandomMessageId() uint32 {
 type rpcNode struct {
 	id     uint64
 	ip     string
+	port   uint32
 	closer udwClose.Closer
 	lock   sync.Mutex
 	conn   net.Conn
