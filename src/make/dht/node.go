@@ -95,6 +95,7 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint6
 			}
 			requestedNodeIdMap[id] = true
 			_node := rpcInMemoryGetNode(id)
+			//TODO rNode
 			_closestIdList, _value := _node.findLocal(node.id, targetId, isValue)
 			node.updateBuckets(_closestIdList...)
 			if isValue && _value != nil {
@@ -173,8 +174,6 @@ func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 	}
 	node.lock.Unlock()
 }
-
-//TODO ping
 
 func (node *peerNode) store(v []byte) {
 	node.lock.Lock()
