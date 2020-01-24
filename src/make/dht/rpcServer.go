@@ -43,6 +43,7 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				_idMessage: request._idMessage,
 			}
 			switch request.cmd {
+			case cmdPing:
 			case cmdStore:
 				node.store(request.data)
 			case cmdFindNode, cmdFindValue:

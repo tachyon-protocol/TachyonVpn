@@ -150,6 +150,21 @@ func (node *peerNode) findLocal(targetId uint64, isValue bool) (closestIdList []
 	return closestIdList[:udwMath.IntMin(len(closestIdList), k)], nil
 }
 
+func (node *peerNode) getRpcNode(id uint64) *rpcNode {
+	cps := sizeOfCommonPrefix(id, node.id)
+	node.lock.RLock()
+	m := node.kBuckets[cps]
+	if m != nil {
+		rNode, exist := m[id]
+		if exist {
+			node.lock.RUnlock()
+			return rNode
+		}
+	}
+	node.lock.RUnlock()
+	return nil
+}
+
 func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 	node.lock.Lock()
 	for _, rNode := range rpcNodeList {
