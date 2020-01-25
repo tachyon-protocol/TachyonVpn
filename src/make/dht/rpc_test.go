@@ -8,7 +8,7 @@ import (
 )
 
 func TestRpcNodeStore(t *testing.T) {
-	node := newPeerNode(1)
+	node := newPeerNode(1) //TODO
 	closeRpcServer := node.StartRpcServer()
 	defer closeRpcServer()
 	rNode := rpcNode{
@@ -26,8 +26,8 @@ func TestRpcNodeStore(t *testing.T) {
 }
 
 func TestRpcNodeFindNode(t *testing.T) {
-	node1 := newPeerNode(1)
-	node2 := newPeerNode(2, node1.id)
+	node1 := newPeerNode(1) //TODO
+	node2 := newPeerNode(2, node1.id) //TODO
 	closeRpcServer := node2.StartRpcServer()
 	defer closeRpcServer()
 	rNode := rpcNode{

@@ -1,6 +1,6 @@
 package dht
 
-var k = 3
+var k = 4
 
 const (
 	debugDhtLog = true

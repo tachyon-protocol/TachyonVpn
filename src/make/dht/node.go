@@ -94,9 +94,14 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint6
 				continue
 			}
 			requestedNodeIdMap[id] = true
-			_node := rpcInMemoryGetNode(id)
-			//TODO rNode
-			_closestIdList, _value := _node.findLocal(node.id, targetId, isValue)
+			//_node := rpcInMemoryGetNode(id)
+			_node := node.getRpcNode(id)
+			//_closestIdList, _value := _node.findLocal(node.id, targetId, isValue)
+			if isValue {
+				closestIdList, value, err := _node.findValue(targetId)
+			} else {
+				closestIdList, err := _node.findNode(targetId)
+			}
 			node.updateBuckets(_closestIdList...)
 			if isValue && _value != nil {
 				return _closestIdList, _value
