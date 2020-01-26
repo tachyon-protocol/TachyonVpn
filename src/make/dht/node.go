@@ -195,6 +195,10 @@ func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 	node.lock.Unlock()
 }
 
+
+func (node *peerNode) gcBuckets() {
+}
+
 func (node *peerNode) store(v []byte) {
 	node.lock.Lock()
 	node.keyMap[hash(v)] = v

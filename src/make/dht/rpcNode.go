@@ -138,7 +138,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	if rNode.rBuf == nil {
 		rNode.rBuf = make([]byte, 2<<10)
 	}
-	err = rNode.conn.SetReadDeadline(time.Now().Add(time.Second * 5))
+	err = rNode.conn.SetReadDeadline(time.Now().Add(timeoutRpcRead))
 	if err != nil {
 		return nil, errors.New("[ds3y24s5gu]" + err.Error())
 	}
