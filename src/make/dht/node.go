@@ -171,6 +171,16 @@ func (node *peerNode) getRpcNode(id uint64) *rpcNode {
 	return nil
 }
 
+func (node *peerNode) deleteRpcNode(id uint64) {
+	cps := sizeOfCommonPrefix(id, node.id)
+	node.lock.Lock()
+	m := node.kBuckets[cps]
+	if m != nil {
+		delete(m,id)
+	}
+	node.lock.Unlock()
+}
+
 func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 	node.lock.Lock()
 	for _, rNode := range rpcNodeList {
