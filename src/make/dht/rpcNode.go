@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	//cmdPing      byte = 0
+	cmdPing      byte = 0
 	cmdStore     byte = 1
 	cmdFindNode  byte = 2
 	cmdFindValue byte = 3
@@ -24,8 +24,8 @@ const (
 
 func getCmdString(cmd byte) string {
 	switch cmd {
-	//case cmdPing:
-	//	return "PING"
+	case cmdPing:
+		return "PING"
 	case cmdStore:
 		return "STORE"
 	case cmdFindNode:
@@ -96,13 +96,16 @@ func newRandomMessageId() uint32 {
 }
 
 type rpcNode struct {
+	callerId uint64
 	id     uint64
 	ip     string
+	port   uint32
 	closer udwClose.Closer
 	lock   sync.Mutex
 	conn   net.Conn
 	wBuf   udwBytes.BufWriter
 	rBuf   []byte
+	lastResponseTime time.Time //TODO update this when any rpc request sent
 }
 
 const errorRpcCallResponseTimeout = "hgy1hkd1w7xs"
@@ -136,7 +139,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	if rNode.rBuf == nil {
 		rNode.rBuf = make([]byte, 2<<10)
 	}
-	err = rNode.conn.SetReadDeadline(time.Now().Add(time.Second * 5))
+	err = rNode.conn.SetReadDeadline(time.Now().Add(timeoutRpcRead))
 	if err != nil {
 		return nil, errors.New("[ds3y24s5gu]" + err.Error())
 	}
@@ -175,7 +178,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 func (rNode *rpcNode) store(v []byte) error {
 	_, err := rNode.call(rpcMessage{
 		cmd:      cmdStore,
-		idSender: rNode.id,
+		idSender: rNode.callerId,
 		data:     v,
 	})
 	if err != nil {
@@ -184,10 +187,21 @@ func (rNode *rpcNode) store(v []byte) error {
 	return nil
 }
 
+func (rNode *rpcNode) ping() error {
+	_, err := rNode.call(rpcMessage{
+		cmd:      cmdPing,
+		idSender: rNode.callerId,
+	})
+	if err != nil {
+		return errors.New("[f2red8en1bc]" + err.Error())
+	}
+	return nil
+}
+
 func (rNode *rpcNode) findNode(targetId uint64) (closestIdList []uint64, err error) {
 	req := rpcMessage{
 		cmd:      cmdFindNode,
-		idSender: rNode.id,
+		idSender: rNode.callerId,
 		data:     make([]byte, 8),
 	}
 	binary.BigEndian.PutUint64(req.data, targetId)
@@ -202,7 +216,7 @@ func (rNode *rpcNode) findNode(targetId uint64) (closestIdList []uint64, err err
 func (rNode *rpcNode) findValue(key uint64) (closestIdList []uint64, value []byte, err error) {
 	req := rpcMessage{
 		cmd:      cmdFindValue,
-		idSender: rNode.id,
+		idSender: rNode.callerId,
 		data:     make([]byte, 8),
 	}
 	binary.BigEndian.PutUint64(req.data, key)

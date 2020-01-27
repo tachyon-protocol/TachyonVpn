@@ -5,38 +5,40 @@ import (
 	"github.com/tachyon-protocol/udw/udwCryptoSha3"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwMath"
+	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwRand"
 	"github.com/tachyon-protocol/udw/udwSortedMap"
 	"math"
 	"sync"
+	"time"
 )
 
 type peerNode struct {
 	id       uint64
 	lock     sync.RWMutex
 	keyMap   map[uint64][]byte
-	kBuckets [64]map[uint64]bool
+	kBuckets [64]map[uint64]*rpcNode
 }
 
-func newPeerNode(id uint64, bootstrapNodeIds ...uint64) *peerNode {
-	if id == 0 {
-		id = udwRand.MustCryptoRandUint64()
+type newPeerNodeRequest struct {
+	id                   uint64
+	port                 uint32
+	bootstrapRpcNodeList []*rpcNode
+}
+
+func newPeerNode(req newPeerNodeRequest) *peerNode {
+	if req.id == 0 {
+		req.id = udwRand.MustCryptoRandUint64()
 	}
 	n := &peerNode{
-		id:       id,
+		id:       req.id,
 		keyMap:   map[uint64][]byte{},
-		kBuckets: [64]map[uint64]bool{},
+		kBuckets: [64]map[uint64]*rpcNode{},
 	}
-	for _, id := range bootstrapNodeIds {
-		index := sizeOfCommonPrefix(n.id, id)
-		m := n.kBuckets[index]
-		if m == nil {
-			m = map[uint64]bool{}
-		}
-		m[id] = true
-		n.kBuckets[index] = m
+	n.updateBuckets(req.bootstrapRpcNodeList)
+	if debugMemoryMode {
+		rpcInMemoryRegister(n)
 	}
-	rpcInMemoryRegister(n)
 	n.findNode(n.id)
 	return n
 }
@@ -60,7 +62,7 @@ func hash(v []byte) uint64 {
 }
 
 func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint64, value []byte) {
-	closestIdList, value = node.findLocal(node.id, targetId, isValue)
+	closestIdList, value = node.findLocal(targetId, isValue)
 	if isValue && value != nil {
 		return nil, value
 	}
@@ -94,8 +96,14 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint6
 				continue
 			}
 			requestedNodeIdMap[id] = true
-			_node := rpcInMemoryGetNode(id)
-			_closestIdList, _value := _node.findLocal(node.id, targetId, isValue)
+			//_node := rpcInMemoryGetNode(id)
+			_node := node.getRpcNode(id)
+			//_closestIdList, _value := _node.findLocal(node.id, targetId, isValue)
+			if isValue {
+				closestIdList, value, err := _node.findValue(targetId)
+			} else {
+				closestIdList, err := _node.findNode(targetId)
+			}
 			node.updateBuckets(_closestIdList...)
 			if isValue && _value != nil {
 				return _closestIdList, _value
@@ -117,7 +125,7 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint6
 	}
 }
 
-func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) (closestIdList []uint64, value []byte) {
+func (node *peerNode) findLocal(targetId uint64, isValue bool) (closestIdList []uint64, value []byte) {
 	if isValue {
 		node.lock.RLock()
 		v, exist := node.keyMap[targetId]
@@ -136,41 +144,98 @@ func (node *peerNode) findLocal(callerId uint64, targetId uint64, isValue bool) 
 	node.lock.RUnlock()
 	closestIdList = idToDistanceMap.KeysByValueAsc()
 	if debugDhtLog {
-		udwLog.Log("[findLocal]", node.id, "target", targetId, "closest id rank: caller", callerId)
+		udwLog.Log("[findLocal]", node.id, "target", targetId, "closest id rank:")
 		for _, id := range closestIdList {
 			distance, _ := idToDistanceMap.Get(id)
 			udwLog.Log("           ", id, "distance", distance)
 		}
 	}
-	if callerId == targetId {
-		node.updateBuckets(callerId)
-	}
+	//if callerRpcNode == targetId {
+	//	//TODO add caller's rpcNode
+	//	//node.updateBuckets(callerId)
+	//}
 	return closestIdList[:udwMath.IntMin(len(closestIdList), k)], nil
 }
 
-func (node *peerNode) updateBuckets(ids ...uint64) {
+func (node *peerNode) getRpcNode(id uint64) *rpcNode {
+	cps := sizeOfCommonPrefix(id, node.id)
+	node.lock.RLock()
+	m := node.kBuckets[cps]
+	if m != nil {
+		rNode, exist := m[id]
+		if exist {
+			node.lock.RUnlock()
+			return rNode
+		}
+	}
+	node.lock.RUnlock()
+	return nil
+}
+
+func (node *peerNode) deleteRpcNode(id uint64) {
+	cps := sizeOfCommonPrefix(id, node.id)
 	node.lock.Lock()
-	for _, id := range ids {
-		if id == node.id {
+	m := node.kBuckets[cps]
+	if m != nil {
+		delete(m,id)
+	}
+	node.lock.Unlock()
+}
+
+func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
+	node.lock.Lock()
+	for _, rNode := range rpcNodeList {
+		if rNode == nil {
 			continue
 		}
-		cps := sizeOfCommonPrefix(id, node.id)
+		if rNode.id == node.id {
+			continue
+		}
+		cps := sizeOfCommonPrefix(rNode.id, node.id)
 		m := node.kBuckets[cps]
 		if m == nil {
-			m = map[uint64]bool{}
+			m = map[uint64]*rpcNode{}
 		}
-		if !m[id] {
-			m[id] = true
+		if m[rNode.id] == nil {
+			m[rNode.id] = rNode
 			node.kBuckets[cps] = m
 			if debugDhtLog {
-				udwLog.Log("[updateBuckets]", node.id, "add new id", id, "cps", cps)
+				udwLog.Log("[updateBuckets]", node.id, "add new rpcNode", rNode.id, "cps", cps)
 			}
 		}
 	}
 	node.lock.Unlock()
 }
 
-//TODO ping
+func (node *peerNode) gcBuckets() {
+	var checkList []*rpcNode
+	now := time.Now()
+	node.lock.RLock()
+	for _, m  := range node.kBuckets {
+		if len(m) == 0 {
+			continue
+		}
+		for _, rNode := range m {
+			rNode.lock.Lock()
+			delta := now.Sub(rNode.lastResponseTime)
+			rNode.lock.Unlock()
+			if delta > timeoutRpcNodeInBuckets {
+				checkList = append(checkList, rNode)
+			}
+		}
+	}
+	node.lock.RUnlock()
+	for _, rNode := range checkList {
+		err := rNode.ping()
+		if err != nil {
+			node.deleteRpcNode(rNode.id)
+		} else {
+			rNode.lock.Lock()
+			rNode.lastResponseTime = time.Now()
+			rNode.lock.Unlock()
+		}
+	}
+}
 
 func (node *peerNode) store(v []byte) {
 	node.lock.Lock()
