@@ -105,6 +105,7 @@ type rpcNode struct {
 	conn   net.Conn
 	wBuf   udwBytes.BufWriter
 	rBuf   []byte
+	lastResponseTime time.Time //TODO update this when any rpc request sent
 }
 
 const errorRpcCallResponseTimeout = "hgy1hkd1w7xs"

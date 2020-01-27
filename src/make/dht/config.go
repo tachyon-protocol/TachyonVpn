@@ -7,6 +7,7 @@ var k = 4
 const (
 	timeoutRpcRead = time.Second*5
 	timeoutRpcNodeInBuckets = time.Minute
+	intervalGcBuckets = time.Minute
 )
 
 //debug flags

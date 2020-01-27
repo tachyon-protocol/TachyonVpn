@@ -9,6 +9,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwSortedMap"
 	"math"
 	"sync"
+	"time"
 )
 
 type peerNode struct {
@@ -195,8 +196,30 @@ func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 	node.lock.Unlock()
 }
 
-
 func (node *peerNode) gcBuckets() {
+	var checkList []*rpcNode
+	now := time.Now()
+	node.lock.RLock()
+	for _, m  := range node.kBuckets {
+		if len(m) == 0 {
+			continue
+		}
+		for _, rNode := range m {
+			rNode.lock.Lock()
+			delta := now.Sub(rNode.lastResponseTime)
+			rNode.lock.Unlock()
+			if delta > timeoutRpcNodeInBuckets {
+				checkList = append(checkList, rNode)
+			}
+		}
+	}
+	node.lock.RLock()
+	for _, rNode := range checkList {
+		err := rNode.ping()
+		if err != nil {
+
+		}
+	}
 }
 
 func (node *peerNode) store(v []byte) {
