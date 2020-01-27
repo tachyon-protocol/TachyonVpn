@@ -5,6 +5,7 @@ import (
 	"github.com/tachyon-protocol/udw/udwCryptoSha3"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwMath"
+	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwRand"
 	"github.com/tachyon-protocol/udw/udwSortedMap"
 	"math"
@@ -223,11 +224,15 @@ func (node *peerNode) gcBuckets() {
 			}
 		}
 	}
-	node.lock.RLock()
+	node.lock.RUnlock()
 	for _, rNode := range checkList {
 		err := rNode.ping()
 		if err != nil {
-
+			node.deleteRpcNode(rNode.id)
+		} else {
+			rNode.lock.Lock()
+			rNode.lastResponseTime = time.Now()
+			rNode.lock.Unlock()
 		}
 	}
 }
