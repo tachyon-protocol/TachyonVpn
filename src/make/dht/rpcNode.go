@@ -66,23 +66,23 @@ func (packet *rpcMessage) encode(buf *udwBytes.BufWriter) {
 	buf.Write_(packet.data)
 }
 
-func (packet *rpcMessage) parseData() (closestIdList []uint64, value []byte, err error) {
+func (packet *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []byte, err error) {
 	if len(packet.data) < 1 {
 		return nil, nil, errors.New("[88n4mc5439]")
 	}
 	size := int(packet.data[0])
 	if size > 0 {
-		closestIdList = make([]uint64, 0, size)
+		closestRpcNodeList = make([]uint64, 0, size)
 		for i := 0; i < size; i++ {
 			if 1+i*8 >= len(packet.data) || 1+i*8+8 > len(packet.data) {
 				udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(packet.data) is", len(packet.data))
-				return closestIdList, nil, nil
+				return closestRpcNodeList, nil, nil
 			}
-			closestIdList = append(closestIdList, binary.BigEndian.Uint64(packet.data[i+1:i+1+8]))
+			closestRpcNodeList = append(closestRpcNodeList, binary.BigEndian.Uint64(packet.data[i+1:i+1+8]))
 		}
 	}
 	value = packet.data[1+size*8:]
-	return closestIdList, value, nil
+	return closestRpcNodeList, value, nil
 }
 
 func newRandomMessageId() uint32 {
@@ -97,7 +97,7 @@ func newRandomMessageId() uint32 {
 
 type rpcNode struct {
 	Id               uint64
-	Ip               string //TODO support IPv6 address
+	Ip               []byte //TODO support IPv6 address
 	Port             uint32
 
 	callerId         uint64
@@ -116,9 +116,9 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	defer rNode.lock.Unlock()
 	if rNode.conn == nil {
 		if debugRpcLog {
-			udwLog.Log("[rpcNode call] new conn to", rNode.Ip)
+			udwLog.Log("[rpcNode call] new conn to", net.IP(rNode.Ip).To4().String())
 		}
-		conn, err := net.Dial("udp", rNode.Ip+":"+strconv.Itoa(rpcPort))
+		conn, err := net.Dial("udp", net.IP(rNode.Ip).To4().String()+":"+strconv.Itoa(rpcPort))
 		if err != nil {
 			return nil, errors.New("[y9e4v8pvp7]" + err.Error())
 		}
