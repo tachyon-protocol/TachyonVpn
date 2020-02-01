@@ -20,6 +20,8 @@ const (
 	cmdFindValue byte = 3
 	cmdOk        byte = 4
 	//cmdError     byte = 5
+	cmdOkValue              byte = 6
+	cmdOkClosestRpcNodeList byte = 7
 )
 
 func getCmdString(cmd byte) string {
@@ -70,15 +72,33 @@ func (packet *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []by
 	if len(packet.data) < 1 {
 		return nil, nil, errors.New("[88n4mc5439]")
 	}
+	const oneRpcNodeSize = 8 + 4 + 2
 	size := int(packet.data[0])
 	if size > 0 {
-		closestRpcNodeList = make([]uint64, 0, size)
+		closestRpcNodeList = make([]*rpcNode, 0, size)
 		for i := 0; i < size; i++ {
-			if 1+i*8 >= len(packet.data) || 1+i*8+8 > len(packet.data) {
+			start := 1+i*oneRpcNodeSize
+			if i >= len(packet.data) || 1+(i+1)*oneRpcNodeSize > len(packet.data) {
 				udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(packet.data) is", len(packet.data))
 				return closestRpcNodeList, nil, nil
 			}
-			closestRpcNodeList = append(closestRpcNodeList, binary.BigEndian.Uint64(packet.data[i+1:i+1+8]))
+			rNode := &rpcNode{
+				Id:               binary.BigEndian.Uint64(packet.data[start:start+8]),
+				//Ip:               packet.data[],
+				//Port:             0,
+				//callerId:         0,
+				//closer:           udwClose.Closer{},
+				//lock:             sync.Mutex{},
+				//conn:             nil,
+				//wBuf:             udwBytes.BufWriter{},
+				//rBuf:             nil,
+				//lastResponseTime: time.Time{},
+			}
+			start+=8
+			rNode.Ip = packet.data[start:start+4]
+			start+=4
+			rNode.Ip = packet.data[start:start+2]
+			closestRpcNodeList = append(closestRpcNodeList, rNode)
 		}
 	}
 	value = packet.data[1+size*8:]
@@ -96,9 +116,9 @@ func newRandomMessageId() uint32 {
 }
 
 type rpcNode struct {
-	Id               uint64
-	Ip               []byte //TODO support IPv6 address
-	Port             uint32
+	Id   uint64
+	Ip   []byte //TODO support IPv6 address
+	Port uint16
 
 	callerId         uint64
 	closer           udwClose.Closer
