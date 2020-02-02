@@ -75,6 +75,7 @@ func (packet *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []by
 	switch packet.cmd {
 	case cmdOk:
 		//TODO
+		return nil, nil, nil
 	case cmdOkClosestRpcNodeList:
 		const oneRpcNodeSize = 8 + 4 + 2
 		size := int(packet.data[0])
@@ -96,10 +97,11 @@ func (packet *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []by
 				closestRpcNodeList = append(closestRpcNodeList, rNode)
 			}
 		}
+		return closestRpcNodeList, nil, nil
 	case cmdOkValue:
 		return nil, packet.data, nil
 	default:
-		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd["+strconv.Itoa(int(packet.cmd))+"]")
+		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd[" + strconv.Itoa(int(packet.cmd)) + "]")
 	}
 }
 
