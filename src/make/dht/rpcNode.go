@@ -72,37 +72,35 @@ func (packet *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []by
 	if len(packet.data) < 1 {
 		return nil, nil, errors.New("[88n4mc5439]")
 	}
-	const oneRpcNodeSize = 8 + 4 + 2
-	size := int(packet.data[0])
-	if size > 0 {
-		closestRpcNodeList = make([]*rpcNode, 0, size)
-		for i := 0; i < size; i++ {
-			start := 1+i*oneRpcNodeSize
-			if i >= len(packet.data) || 1+(i+1)*oneRpcNodeSize > len(packet.data) {
-				udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(packet.data) is", len(packet.data))
-				return closestRpcNodeList, nil, nil
+	switch packet.cmd {
+	case cmdOk:
+		//TODO
+	case cmdOkClosestRpcNodeList:
+		const oneRpcNodeSize = 8 + 4 + 2
+		size := int(packet.data[0])
+		if size > 0 {
+			closestRpcNodeList = make([]*rpcNode, 0, size)
+			for i := 0; i < size; i++ {
+				start := 1 + i*oneRpcNodeSize
+				if i >= len(packet.data) || start+oneRpcNodeSize > len(packet.data) {
+					udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(packet.data) is", len(packet.data))
+					return closestRpcNodeList, nil, nil
+				}
+				rNode := &rpcNode{
+					Id: binary.BigEndian.Uint64(packet.data[start : start+8]),
+				}
+				start += 8
+				rNode.Ip = packet.data[start : start+4]
+				start += 4
+				rNode.Port = binary.BigEndian.Uint16(packet.data[start : start+2])
+				closestRpcNodeList = append(closestRpcNodeList, rNode)
 			}
-			rNode := &rpcNode{
-				Id:               binary.BigEndian.Uint64(packet.data[start:start+8]),
-				//Ip:               packet.data[],
-				//Port:             0,
-				//callerId:         0,
-				//closer:           udwClose.Closer{},
-				//lock:             sync.Mutex{},
-				//conn:             nil,
-				//wBuf:             udwBytes.BufWriter{},
-				//rBuf:             nil,
-				//lastResponseTime: time.Time{},
-			}
-			start+=8
-			rNode.Ip = packet.data[start:start+4]
-			start+=4
-			rNode.Ip = packet.data[start:start+2]
-			closestRpcNodeList = append(closestRpcNodeList, rNode)
 		}
+	case cmdOkValue:
+		return nil, packet.data, nil
+	default:
+		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd["+strconv.Itoa(int(packet.cmd))+"]")
 	}
-	value = packet.data[1+size*8:]
-	return closestRpcNodeList, value, nil
 }
 
 func newRandomMessageId() uint32 {
