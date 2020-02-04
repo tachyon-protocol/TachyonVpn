@@ -12,8 +12,8 @@ func TestRpcNodeStore(t *testing.T) {
 	closeRpcServer := node.StartRpcServer()
 	defer closeRpcServer()
 	rNode := rpcNode{
-		id: node.id,
-		ip: "127.0.0.1",
+		Id: node.id,
+		Ip: "127.0.0.1",
 	}
 	const data = "Hyperion"
 	key := hash([]byte(data))
@@ -31,8 +31,8 @@ func TestRpcNodeFindNode(t *testing.T) {
 	closeRpcServer := node2.StartRpcServer()
 	defer closeRpcServer()
 	rNode := rpcNode{
-		id: node2.id,
-		ip: "127.0.0.1",
+		Id: node2.id,
+		Ip: "127.0.0.1",
 	}
 	closestIdList, err := rNode.findNode(1)
 	udwErr.PanicIfError(err)
@@ -48,10 +48,10 @@ func TestRpcNodeFindValue(t *testing.T) {
 	node2 := newPeerNode(2, node1.id)
 	closeRpcServerNode2 := node2.StartRpcServer()
 	rNode2 := rpcNode{
-		id: node2.id,
-		ip: "127.0.0.1",
+		Id: node2.id,
+		Ip: "127.0.0.1",
 	}
-	closestIdList, value, err := rNode2.findValue(key)
+	closestIdList, value, err := rNode2.find(key)
 	udwErr.PanicIfError(err)
 	udwTest.Equal(len(closestIdList), 1)
 	closestId := closestIdList[0]
@@ -62,10 +62,10 @@ func TestRpcNodeFindValue(t *testing.T) {
 	closeRpcServerNode1 := node1.StartRpcServer()
 	defer closeRpcServerNode1()
 	rNodeClosest := rpcNode{
-		id: closestId,
-		ip: "127.0.0.1",
+		Id: closestId,
+		Ip: "127.0.0.1",
 	}
-	closestIdList, value, err = rNodeClosest.findValue(key)
+	closestIdList, value, err = rNodeClosest.find(key)
 	udwErr.PanicIfError(err)
 	udwTest.Ok(len(closestIdList)==0)
 	udwTest.Equal(string(value), data)
