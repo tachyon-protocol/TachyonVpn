@@ -51,7 +51,7 @@ func TestRpcNodeFindValue(t *testing.T) {
 		Id: node2.id,
 		Ip: "127.0.0.1",
 	}
-	closestIdList, value, err := rNode2.findValue(key)
+	closestIdList, value, err := rNode2.find(key)
 	udwErr.PanicIfError(err)
 	udwTest.Equal(len(closestIdList), 1)
 	closestId := closestIdList[0]
@@ -65,7 +65,7 @@ func TestRpcNodeFindValue(t *testing.T) {
 		Id: closestId,
 		Ip: "127.0.0.1",
 	}
-	closestIdList, value, err = rNodeClosest.findValue(key)
+	closestIdList, value, err = rNodeClosest.find(key)
 	udwErr.PanicIfError(err)
 	udwTest.Ok(len(closestIdList)==0)
 	udwTest.Equal(string(value), data)

@@ -101,7 +101,7 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint6
 			var (
 			)
 			if isValue {
-				closestIdList, value, err := _node.findValue(targetId)
+				closestIdList, value, err := _node.find(targetId)
 				if value != nil {
 				}
 			} else {

@@ -219,28 +219,32 @@ func (rNode *rpcNode) ping() error {
 	return nil
 }
 
-func (rNode *rpcNode) findNode(targetId uint64) (closestIdList []uint64, err error) {
-	req := rpcMessage{
-		cmd:      cmdFindNode,
-		idSender: rNode.callerId,
-		data:     make([]byte, 8),
-	}
-	binary.BigEndian.PutUint64(req.data, targetId)
-	resp, err := rNode.call(req)
-	if err != nil {
-		return nil, errors.New("[7qf68n3q9g]" + err.Error())
-	}
-	closestIdList, _, err = resp.parseData()
-	return
-}
+//func (rNode *rpcNode) findNode(targetId uint64) (closestRpcNodeList []*rpcNode, err error) {
+//	req := rpcMessage{
+//		cmd:      cmdFindNode,
+//		idSender: rNode.callerId,
+//		data:     make([]byte, 8),
+//	}
+//	binary.BigEndian.PutUint64(req.data, targetId)
+//	resp, err := rNode.call(req)
+//	if err != nil {
+//		return nil, errors.New("[7qf68n3q9g]" + err.Error())
+//	}
+//	closestRpcNodeList, _, err = resp.parseData()
+//	return
+//}
 
-func (rNode *rpcNode) findValue(key uint64) (closestRpcNodeList []*rpcNode, value []byte, err error) {
+func (rNode *rpcNode) find(id uint64, isFindValue bool) (closestRpcNodeList []*rpcNode, value []byte, err error) {
+	cmd := cmdFindNode
+	if isFindValue {
+		cmd = cmdFindValue
+	}
 	req := rpcMessage{
-		cmd:      cmdFindValue,
+		cmd:      cmd,
 		idSender: rNode.callerId,
 		data:     make([]byte, 8),
 	}
-	binary.BigEndian.PutUint64(req.data, key)
+	binary.BigEndian.PutUint64(req.data, id)
 	resp, err := rNode.call(req)
 	if err != nil {
 		return nil, nil, errors.New("[xkx1veu5dqp]" + err.Error())
