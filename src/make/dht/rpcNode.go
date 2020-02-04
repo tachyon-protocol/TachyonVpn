@@ -219,21 +219,6 @@ func (rNode *rpcNode) ping() error {
 	return nil
 }
 
-//func (rNode *rpcNode) findNode(targetId uint64) (closestRpcNodeList []*rpcNode, err error) {
-//	req := rpcMessage{
-//		cmd:      cmdFindNode,
-//		idSender: rNode.callerId,
-//		data:     make([]byte, 8),
-//	}
-//	binary.BigEndian.PutUint64(req.data, targetId)
-//	resp, err := rNode.call(req)
-//	if err != nil {
-//		return nil, errors.New("[7qf68n3q9g]" + err.Error())
-//	}
-//	closestRpcNodeList, _, err = resp.parseData()
-//	return
-//}
-
 func (rNode *rpcNode) find(id uint64, isFindValue bool) (closestRpcNodeList []*rpcNode, value []byte, err error) {
 	cmd := cmdFindNode
 	if isFindValue {
