@@ -49,6 +49,8 @@ The image will be updated with Linux version.
 ### demo-v2 Support P2P Relay Mode
 ### demo-v1 First Demo
 ## Tachyon Protocol Plan
+### 2020-2-5
+* DHT RpcNode API refactor in progress 
 ### 2020-1-21
 * DHT RPC API: Ping
 * DHT k-buckets GC
