@@ -96,12 +96,12 @@ func (node *peerNode) find(targetId uint64, isFindValue bool) (closestRpcNodeLis
 			requestedNodeIdMap[id] = true
 			rNode := node.getRpcNode(id)
 			if rNode == nil {
-				udwLog.Log("[cgc1e8b2p3q] can find rpcNode", id, "on node", node.id)
+				udwLog.Log("[cgc1e8b2p3q] can find rpcNode", id, "on", node.id)
 				continue
 			}
 			_closestRpcNodeList, _value, err := rNode.find(targetId, isFindValue)
 			if err != nil {
-				udwLog.Log("[43eav1fmk5s]", err)
+				udwLog.Log("[43eav1fmk5s] ask", id, "to find", targetId, "on", node.id, "failed:", err)
 				continue
 			}
 			node.updateBuckets(_closestRpcNodeList)
@@ -119,8 +119,8 @@ func (node *peerNode) find(targetId uint64, isFindValue bool) (closestRpcNodeLis
 				}
 			}
 		}
-		if minDistance == _minDistance {
-			return closestRpcNodeList[:udwMath.IntMin(len(closestRpcNodeList), k)], value
+		if minDistance >= _minDistance { //not found
+			return closestRpcNodeList[:udwMath.IntMin(len(closestRpcNodeList), k)], nil
 		}
 	}
 }
