@@ -47,61 +47,71 @@ type rpcMessage struct {
 	cmd        byte
 	_idMessage uint32 //do not set this manually
 	idSender   uint64
-	data       []byte
+	portSender uint16
+
+	targetId uint64
 }
 
-func (packet *rpcMessage) decode(buf []byte) error {
+func (message *rpcMessage) decode(buf []byte) error {
 	if len(buf) < 13 {
 		return errors.New("[d5tkk1grb1rk] input too short " + strconv.Itoa(len(buf)))
 	}
-	packet.cmd = buf[0]
-	packet._idMessage = binary.BigEndian.Uint32(buf[1:5])
-	packet.idSender = binary.BigEndian.Uint64(buf[5:13])
-	packet.data = buf[13:]
+	message.cmd = buf[0]
+	message._idMessage = binary.BigEndian.Uint32(buf[1:5])
+	message.idSender = binary.BigEndian.Uint64(buf[5:13])
+	switch message.cmd {
+	case cmdFindNode,cmdFindValue:
+		if len(buf) < 13+8 {
+			return errors.New("[bpc1cpn8d2h] input too short " + strconv.Itoa(len(buf)))
+		}
+	}
 	return nil
 }
 
-func (packet *rpcMessage) encode(buf *udwBytes.BufWriter) {
-	buf.WriteByte_(packet.cmd)
-	buf.WriteBigEndUint32(packet._idMessage)
-	buf.WriteBigEndUint64(packet.idSender)
-	buf.Write_(packet.data)
+func (message *rpcMessage) encode(buf *udwBytes.BufWriter) {
+	buf.WriteByte_(message.cmd)
+	buf.WriteBigEndUint32(message._idMessage)
+	buf.WriteBigEndUint64(message.idSender)
+	switch message.cmd {
+	case cmdFindNode, cmdFindValue:
+		buf.WriteBigEndUint64(message.targetId)
+	}
 }
 
-func (packet *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []byte, err error) {
-	if len(packet.data) < 1 {
+func (message *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []byte, err error) {
+	if len(message.data) < 1 {
 		return nil, nil, errors.New("[88n4mc5439]")
 	}
-	switch packet.cmd {
+	switch message.cmd {
 	case cmdOk:
 		//TODO
 		return nil, nil, nil
 	case cmdOkClosestRpcNodeList:
 		const oneRpcNodeSize = 8 + 4 + 2
-		size := int(packet.data[0])
+		size := int(message.data[0])
 		if size > 0 {
 			closestRpcNodeList = make([]*rpcNode, 0, size)
 			for i := 0; i < size; i++ {
 				start := 1 + i*oneRpcNodeSize
-				if i >= len(packet.data) || start+oneRpcNodeSize > len(packet.data) {
-					udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(packet.data) is", len(packet.data))
+				if i >= len(message.data) || start+oneRpcNodeSize > len(message.data) {
+					udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(message.data) is", len(message.data))
 					return closestRpcNodeList, nil, nil
 				}
 				rNode := &rpcNode{
-					Id: binary.BigEndian.Uint64(packet.data[start : start+8]),
+					Id: binary.BigEndian.Uint64(message.data[start : start+8]),
 				}
 				start += 8
-				rNode.Ip = packet.data[start : start+4]
+				rNode.Ip = message.data[start : start+4]
 				start += 4
-				rNode.Port = binary.BigEndian.Uint16(packet.data[start : start+2])
+				rNode.Port = binary.BigEndian.Uint16(message.data[start : start+2])
 				closestRpcNodeList = append(closestRpcNodeList, rNode)
 			}
 		}
 		return closestRpcNodeList, nil, nil
 	case cmdOkValue:
-		return nil, packet.data, nil
+		return nil, message.data, nil
 	default:
-		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd[" + strconv.Itoa(int(packet.cmd)) + "]")
+		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd[" + strconv.Itoa(int(message.cmd)) + "]")
 	}
 }
 
