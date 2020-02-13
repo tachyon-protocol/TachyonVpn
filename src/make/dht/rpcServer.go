@@ -32,7 +32,7 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				continue
 			}
 			request := rpcMessage{}
-			err = request.decode(rBuf[:n])
+			err = request.rpcMessageDecode(rBuf[:n])
 			if err != nil {
 				udwLog.Log("[xj4w3w2yh9]", err)
 				continue

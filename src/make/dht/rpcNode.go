@@ -49,26 +49,29 @@ type rpcMessage struct {
 	idSender   uint64
 	portSender uint16
 
-	targetId uint64
+	targetId           uint64
+	closestRpcNodeList []*rpcNode
+	value              []byte
 }
 
-func (message *rpcMessage) decode(buf []byte) error {
+func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
 	if len(buf) < 13 {
-		return errors.New("[d5tkk1grb1rk] input too short " + strconv.Itoa(len(buf)))
+		return message, errors.New("[d5tkk1grb1rk] input too short " + strconv.Itoa(len(buf)))
 	}
 	message.cmd = buf[0]
 	message._idMessage = binary.BigEndian.Uint32(buf[1:5])
 	message.idSender = binary.BigEndian.Uint64(buf[5:13])
 	switch message.cmd {
-	case cmdFindNode,cmdFindValue:
+	case cmdFindNode, cmdFindValue:
 		if len(buf) < 13+8 {
-			return errors.New("[bpc1cpn8d2h] input too short " + strconv.Itoa(len(buf)))
+			return message, errors.New("[bpc1cpn8d2h] input too short " + strconv.Itoa(len(buf)))
 		}
+		message.targetId = binary.BigEndian.Uint64(buf[13 : 13+8])
 	}
-	return nil
+	return message, nil
 }
 
-func (message *rpcMessage) encode(buf *udwBytes.BufWriter) {
+func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
 	buf.WriteByte_(message.cmd)
 	buf.WriteBigEndUint32(message._idMessage)
 	buf.WriteBigEndUint64(message.idSender)
@@ -78,42 +81,42 @@ func (message *rpcMessage) encode(buf *udwBytes.BufWriter) {
 	}
 }
 
-func (message *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []byte, err error) {
-	if len(message.data) < 1 {
-		return nil, nil, errors.New("[88n4mc5439]")
-	}
-	switch message.cmd {
-	case cmdOk:
-		//TODO
-		return nil, nil, nil
-	case cmdOkClosestRpcNodeList:
-		const oneRpcNodeSize = 8 + 4 + 2
-		size := int(message.data[0])
-		if size > 0 {
-			closestRpcNodeList = make([]*rpcNode, 0, size)
-			for i := 0; i < size; i++ {
-				start := 1 + i*oneRpcNodeSize
-				if i >= len(message.data) || start+oneRpcNodeSize > len(message.data) {
-					udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(message.data) is", len(message.data))
-					return closestRpcNodeList, nil, nil
-				}
-				rNode := &rpcNode{
-					Id: binary.BigEndian.Uint64(message.data[start : start+8]),
-				}
-				start += 8
-				rNode.Ip = message.data[start : start+4]
-				start += 4
-				rNode.Port = binary.BigEndian.Uint16(message.data[start : start+2])
-				closestRpcNodeList = append(closestRpcNodeList, rNode)
-			}
-		}
-		return closestRpcNodeList, nil, nil
-	case cmdOkValue:
-		return nil, message.data, nil
-	default:
-		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd[" + strconv.Itoa(int(message.cmd)) + "]")
-	}
-}
+//func (message *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []byte, err error) {
+//	if len(message.data) < 1 {
+//		return nil, nil, errors.New("[88n4mc5439]")
+//	}
+//	switch message.cmd {
+//	case cmdOk:
+//		//TODO
+//		return nil, nil, nil
+//	case cmdOkClosestRpcNodeList:
+//		const oneRpcNodeSize = 8 + 4 + 2
+//		size := int(message.data[0])
+//		if size > 0 {
+//			closestRpcNodeList = make([]*rpcNode, 0, size)
+//			for i := 0; i < size; i++ {
+//				start := 1 + i*oneRpcNodeSize
+//				if i >= len(message.data) || start+oneRpcNodeSize > len(message.data) {
+//					udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(message.data) is", len(message.data))
+//					return closestRpcNodeList, nil, nil
+//				}
+//				rNode := &rpcNode{
+//					Id: binary.BigEndian.Uint64(message.data[start : start+8]),
+//				}
+//				start += 8
+//				rNode.Ip = message.data[start : start+4]
+//				start += 4
+//				rNode.Port = binary.BigEndian.Uint16(message.data[start : start+2])
+//				closestRpcNodeList = append(closestRpcNodeList, rNode)
+//			}
+//		}
+//		return closestRpcNodeList, nil, nil
+//	case cmdOkValue:
+//		return nil, message.data, nil
+//	default:
+//		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd[" + strconv.Itoa(int(message.cmd)) + "]")
+//	}
+//}
 
 func newRandomMessageId() uint32 {
 	var tmpBuf [4]byte
@@ -141,7 +144,7 @@ type rpcNode struct {
 
 const errorRpcCallResponseTimeout = "hgy1hkd1w7xs"
 
-func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error) {
+func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) {
 	rNode.lock.Lock()
 	defer rNode.lock.Unlock()
 	if rNode.conn == nil {
@@ -150,7 +153,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 		}
 		conn, err := net.Dial("udp", net.IP(rNode.Ip).To4().String()+":"+strconv.Itoa(rpcPort))
 		if err != nil {
-			return nil, errors.New("[y9e4v8pvp7]" + err.Error())
+			return response, errors.New("[y9e4v8pvp7]" + err.Error())
 		}
 		rNode.conn = conn
 		rNode.closer.AddOnClose(func() {
@@ -159,28 +162,28 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	}
 	rNode.wBuf.Reset()
 	request._idMessage = newRandomMessageId()
-	request.encode(&rNode.wBuf)
+	//request.encode(&rNode.wBuf)
+	rpcMessageEncode(&rNode.wBuf, request)
 	if debugRpcLog {
 		udwLog.Log("[rpcNode call] send", getCmdString(request.cmd), request._idMessage)
 	}
 	_, err = rNode.conn.Write(rNode.wBuf.GetBytes())
 	if err != nil {
-		return nil, errors.New("[8srn1mzp1tkr]" + err.Error())
+		return response, errors.New("[8srn1mzp1tkr]" + err.Error())
 	}
 	if rNode.rBuf == nil {
 		rNode.rBuf = make([]byte, 2<<10)
 	}
 	err = rNode.conn.SetReadDeadline(time.Now().Add(timeoutRpcRead))
 	if err != nil {
-		return nil, errors.New("[ds3y24s5gu]" + err.Error())
+		return response, errors.New("[ds3y24s5gu]" + err.Error())
 	}
 	for {
 		n, _err := rNode.conn.Read(rNode.rBuf)
 		if _err != nil {
-			return nil, errors.New("[" + errorRpcCallResponseTimeout + "]" + _err.Error())
+			return response, errors.New("[" + errorRpcCallResponseTimeout + "]" + _err.Error())
 		}
-		response = &rpcMessage{}
-		err = response.decode(rNode.rBuf[:n])
+		response, err := rpcMessageDecode(rNode.rBuf[:n])
 		if err != nil {
 			udwLog.Log("[tfq1jmc1a9v8]", err.Error())
 			continue
@@ -196,7 +199,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 			//	return nil, errors.New("[mnh3apk1u8b] error[" + string(response.data) + "]")
 			default:
 				if debugRpcLog {
-					udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage, "data:[", string(response.data), "]")
+					udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage)
 				}
 				continue
 			}
@@ -206,28 +209,28 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	}
 }
 
-func (rNode *rpcNode) store(v []byte) error {
-	_, err := rNode.call(rpcMessage{
-		cmd:      cmdStore,
-		idSender: rNode.callerId,
-		data:     v,
-	})
-	if err != nil {
-		return errors.New("[fz4qqp4j9k]" + err.Error())
-	}
-	return nil
-}
+//func (rNode *rpcNode) store(v []byte) error {
+//	_, err := rNode.call(rpcMessage{
+//		cmd:      cmdStore,
+//		idSender: rNode.callerId,
+//		data:     v,
+//	})
+//	if err != nil {
+//		return errors.New("[fz4qqp4j9k]" + err.Error())
+//	}
+//	return nil
+//}
 
-func (rNode *rpcNode) ping() error {
-	_, err := rNode.call(rpcMessage{
-		cmd:      cmdPing,
-		idSender: rNode.callerId,
-	})
-	if err != nil {
-		return errors.New("[f2red8en1bc]" + err.Error())
-	}
-	return nil
-}
+//func (rNode *rpcNode) ping() error {
+//	_, err := rNode.call(rpcMessage{
+//		cmd:      cmdPing,
+//		idSender: rNode.callerId,
+//	})
+//	if err != nil {
+//		return errors.New("[f2red8en1bc]" + err.Error())
+//	}
+//	return nil
+//}
 
 func (rNode *rpcNode) find(id uint64, isFindValue bool) (closestRpcNodeList []*rpcNode, value []byte, err error) {
 	cmd := cmdFindNode
@@ -237,12 +240,11 @@ func (rNode *rpcNode) find(id uint64, isFindValue bool) (closestRpcNodeList []*r
 	req := rpcMessage{
 		cmd:      cmd,
 		idSender: rNode.callerId,
-		data:     make([]byte, 8),
+		targetId: id,
 	}
-	binary.BigEndian.PutUint64(req.data, id)
 	resp, err := rNode.call(req)
 	if err != nil {
 		return nil, nil, errors.New("[xkx1veu5dqp]" + err.Error())
 	}
-	return resp.parseData()
+	return resp.closestRpcNodeList, resp.value, nil
 }
