@@ -89,17 +89,19 @@ func (node *peerNode) find(targetId uint64, isFindValue bool) (closestRpcNodeLis
 	}
 	for {
 		_minDistance := minDistance
-		closestIdList = idToDistanceMap.KeysByValueAsc()
-		for _, id := range closestIdList {
+		for _, id := range idToDistanceMap.KeysByValueAsc() {
 			if requestedNodeIdMap[id] {
 				continue
 			}
 			requestedNodeIdMap[id] = true
-			//_node := rpcInMemoryGetNode(id)
-			_node := node.getRpcNode(id)
-			_closestRpcNodeList, _value, err := _node.find(targetId, isFindValue)
+			rNode := node.getRpcNode(id)
+			if rNode == nil {
+				udwLog.Log("[cgc1e8b2p3q] can find rpcNode", id, "on", node.id)
+				continue
+			}
+			_closestRpcNodeList, _value, err := rNode.find(targetId, isFindValue)
 			if err != nil {
-				udwLog.Log("[43eav1fmk5s]", err)
+				udwLog.Log("[43eav1fmk5s] ask", id, "to find", targetId, "on", node.id, "failed:", err)
 				continue
 			}
 			node.updateBuckets(_closestRpcNodeList)
@@ -117,8 +119,8 @@ func (node *peerNode) find(targetId uint64, isFindValue bool) (closestRpcNodeLis
 				}
 			}
 		}
-		if minDistance == _minDistance {
-			return closestRpcNodeList[:udwMath.IntMin(len(closestRpcNodeList), k)], value
+		if minDistance >= _minDistance { //not found
+			return closestRpcNodeList[:udwMath.IntMin(len(closestRpcNodeList), k)], nil
 		}
 	}
 }
@@ -136,7 +138,7 @@ func (node *peerNode) findLocal(targetId uint64, isValue bool) (closestIdList []
 	node.lock.RLock()
 	for _, km := range node.kBuckets {
 		for id := range km {
-			idToDistanceMap.Set(id, targetId^id)
+			idToDistanceMap.Set(id, targetId^id) //TODO cache the result?
 		}
 	}
 	node.lock.RUnlock()

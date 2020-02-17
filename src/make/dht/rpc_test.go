@@ -133,7 +133,7 @@ var responseTimeoutError = errors.New("timeout")
 //		n, addr, err := packetConn.ReadFrom(rBuf)
 //		udwErr.PanicIfError(err)
 //		request := rpcMessage{}
-//		err = request.decode(rBuf[:n])
+//		err = request.rpcMessageDecode(rBuf[:n])
 //		udwErr.PanicIfError(err)
 //		if correctIdMessage && len(response) > 5 {
 //			binary.BigEndian.PutUint32(response[1:5], request._idMessage)
