@@ -13,6 +13,7 @@ import (
 
 type peerNode struct {
 	id       uint64
+	port     uint16
 	lock     sync.RWMutex
 	keyMap   map[uint64][]byte
 	kBuckets [64]map[uint64]*rpcNode
@@ -20,7 +21,7 @@ type peerNode struct {
 
 type newPeerNodeRequest struct {
 	id                   uint64
-	port                 uint32
+	port                 uint16
 	bootstrapRpcNodeList []*rpcNode
 }
 
@@ -30,6 +31,7 @@ func newPeerNode(req newPeerNodeRequest) *peerNode {
 	}
 	n := &peerNode{
 		id:       req.id,
+		port:     req.port,
 		keyMap:   map[uint64][]byte{},
 		kBuckets: [64]map[uint64]*rpcNode{},
 	}

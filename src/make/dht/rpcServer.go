@@ -1,6 +1,7 @@
 package dht
 
 import (
+	"fmt"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwClose"
 	"github.com/tachyon-protocol/udw/udwErr"
@@ -12,8 +13,11 @@ import (
 const rpcPort = 19283
 
 func (node *peerNode) StartRpcServer() (close func()) {
+	if node.port == 0 {
+		panic("node.port can't be 0")
+	}
 	closer := udwClose.NewCloser()
-	packetConn, err := net.ListenPacket("udp", ":"+strconv.Itoa(rpcPort))
+	packetConn, err := net.ListenPacket("udp", ":"+strconv.Itoa(int(node.port)))
 	udwErr.PanicIfError(err)
 	closer.AddOnClose(func() {
 		_ = packetConn.Close()
@@ -35,6 +39,7 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				udwLog.Log("[xj4w3w2yh9]", err)
 				continue
 			}
+			fmt.Println(">>> request.targetId",request.targetId)
 			response := rpcMessage{
 				idSender:   node.id,
 				_idMessage: request._idMessage,
@@ -69,7 +74,7 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				continue
 			}
 			wBuf.Reset()
-			rpcMessageEncode(wBuf ,response)
+			rpcMessageEncode(wBuf, response)
 			_, err = packetConn.WriteTo(wBuf.GetBytes(), addr)
 			if err != nil {
 				udwLog.Log("[m3v73uce68]", addr, err)

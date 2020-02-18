@@ -25,9 +25,27 @@ import (
 //}
 
 func TestRpcNodeFindNode_one_to_one(t *testing.T) {
-	node0 := newPeerNode(newPeerNodeRequest{
-		id:   0,
-		port: 60000,
+	node1 := newPeerNode(newPeerNodeRequest{
+		id:   1,
+		port: 60001,
+		bootstrapRpcNodeList: []*rpcNode{
+			{
+				Id:   2,
+				Ip:   net.ParseIP("127.0.0.1").To4(),
+				Port: 60002,
+			},
+		},
+	})
+	close1 := node1.StartRpcServer()
+	defer close1()
+	//node2 := newPeerNode(newPeerNodeRequest{
+	//	id:   2,
+	//	port: 60002,
+	//})
+	//close2 := node2.StartRpcServer()
+	//defer close2()
+	node3 := newPeerNode(newPeerNodeRequest{
+		id: 3,
 		bootstrapRpcNodeList: []*rpcNode{
 			{
 				Id:   1,
@@ -36,35 +54,10 @@ func TestRpcNodeFindNode_one_to_one(t *testing.T) {
 			},
 		},
 	})
-	close0 := node0.StartRpcServer()
-	defer close0()
-	node1 := newPeerNode(newPeerNodeRequest{
-		id:   1,
-		port: 60001,
-		bootstrapRpcNodeList: []*rpcNode{
-			{
-				Id:   0,
-				Ip:   net.ParseIP("127.0.0.1").To4(),
-				Port: 60000,
-			},
-		},
-	})
-	close1 := node1.StartRpcServer()
-	defer close1()
-	node2 := newPeerNode(newPeerNodeRequest{
-		id: 2,
-		bootstrapRpcNodeList: []*rpcNode{
-			{
-				Id:   0,
-				Ip:   net.ParseIP("127.0.0.1").To4(),
-				Port: 60000,
-			},
-		},
-	})
-	closestRpcNodeList := node2.findNode(1)
+	closestRpcNodeList := node3.findNode(2)
 	udwTest.Equal(len(closestRpcNodeList), 1)
-	udwTest.Equal(closestRpcNodeList[0].Id, 1)
-	udwTest.Equal(closestRpcNodeList[0].Port, 60001)
+	udwTest.Equal(closestRpcNodeList[0].Id, uint64(2))
+	udwTest.Equal(closestRpcNodeList[0].Port, uint16(60002))
 }
 
 //func TestRpcNodeFindValue(t *testing.T) {
