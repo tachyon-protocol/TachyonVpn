@@ -10,8 +10,6 @@ import (
 	"strconv"
 )
 
-const rpcPort = 19283
-
 func (node *peerNode) StartRpcServer() (close func()) {
 	if node.port == 0 {
 		panic("node.port can't be 0")

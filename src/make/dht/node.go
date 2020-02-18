@@ -39,7 +39,7 @@ func newPeerNode(req newPeerNodeRequest) *peerNode {
 	if debugMemoryMode {
 		rpcInMemoryRegister(n)
 	}
-	n.findNode(n.id)
+	//n.findNode(n.id)//TODO find self
 	return n
 }
 
@@ -62,6 +62,13 @@ func hash(v []byte) uint64 {
 }
 
 func (node *peerNode) find(targetId uint64, isFindValue bool) (closestRpcNodeList []*rpcNode, value []byte) {
+	if debugDhtLog {
+		msg := "findNode"
+		if isFindValue {
+			msg = "findValue"
+		}
+		udwLog.Log(node.id, msg, targetId)
+	}
 	closestIdList, value := node.findLocal(targetId, isFindValue)
 	if isFindValue && value != nil {
 		return nil, value
@@ -102,7 +109,7 @@ func (node *peerNode) find(targetId uint64, isFindValue bool) (closestRpcNodeLis
 			}
 			_closestRpcNodeList, _value, err := rNode.find(targetId, isFindValue)
 			if err != nil {
-				udwLog.Log("[43eav1fmk5s] ask", id, "to find", targetId, "on", node.id, "failed:", err)
+				udwLog.Log("[43eav1fmk5s]", node.id, "ask", id, "to find", targetId, "failed:", err)
 				continue
 			}
 			node.updateBuckets(_closestRpcNodeList)
@@ -145,10 +152,10 @@ func (node *peerNode) findLocal(targetId uint64, isValue bool) (closestIdList []
 	node.lock.RUnlock()
 	closestIdList = idToDistanceMap.KeysByValueAsc()
 	if debugDhtLog {
-		udwLog.Log("[findLocal]", node.id, "target", targetId, "closest id rank:")
+		udwLog.Log(node.id, "findLocal", targetId, "closest id rank:")
 		for _, id := range closestIdList {
 			distance, _ := idToDistanceMap.Get(id)
-			udwLog.Log("           ", id, "distance", distance)
+			udwLog.Log("           ", id, "distance:", distance)
 		}
 	}
 	//if callerRpcNode == targetId {
