@@ -1,6 +1,8 @@
 package dht
 
 import (
+	"github.com/tachyon-protocol/udw/udwTest"
+	"net"
 	"testing"
 )
 
@@ -22,7 +24,7 @@ import (
 //	udwTest.Equal(string(v), data)
 //}
 
-func TestRpcNodeFindNode(t *testing.T) {
+func TestRpcNodeFindNode_one_to_one(t *testing.T) {
 	//node1 := newPeerNode(1) //TODO
 	//node2 := newPeerNode(2, node1.id) //TODO
 	//closeRpcServer := node2.StartRpcServer()
@@ -35,6 +37,46 @@ func TestRpcNodeFindNode(t *testing.T) {
 	//udwErr.PanicIfError(err)
 	//udwTest.Equal(len(closestIdList), 1)
 	//udwTest.Equal(closestIdList[0], uint64(1))
+	node0 := newPeerNode(newPeerNodeRequest{
+		id:   0,
+		port: 60000,
+		bootstrapRpcNodeList: []*rpcNode{
+			{
+				Id:   1,
+				Ip:   net.ParseIP("127.0.0.1").To4(),
+				Port: 60001,
+			},
+		},
+	})
+	close0 := node0.StartRpcServer()
+	defer close0()
+	node1 := newPeerNode(newPeerNodeRequest{
+		id:   1,
+		port: 60001,
+		bootstrapRpcNodeList: []*rpcNode{
+			{
+				Id:   0,
+				Ip:   net.ParseIP("127.0.0.1").To4(),
+				Port: 60000,
+			},
+		},
+	})
+	close1 := node1.StartRpcServer()
+	defer close1()
+	node2 := newPeerNode(newPeerNodeRequest{
+		id: 2,
+		bootstrapRpcNodeList: []*rpcNode{
+			{
+				Id:   0,
+				Ip:   net.ParseIP("127.0.0.1").To4(),
+				Port: 60000,
+			},
+		},
+	})
+	closestRpcNodeList := node2.findNode(1)
+	udwTest.Equal(len(closestRpcNodeList), 1)
+	udwTest.Equal(closestRpcNodeList[0].Id, 1)
+	udwTest.Equal(closestRpcNodeList[0].Port, 60001)
 }
 
 //func TestRpcNodeFindValue(t *testing.T) {
