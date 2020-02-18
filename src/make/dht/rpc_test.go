@@ -1,9 +1,6 @@
 package dht
 
 import (
-	"errors"
-	"github.com/tachyon-protocol/udw/udwErr"
-	"github.com/tachyon-protocol/udw/udwTest"
 	"testing"
 )
 
@@ -26,18 +23,18 @@ import (
 //}
 
 func TestRpcNodeFindNode(t *testing.T) {
-	node1 := newPeerNode(1) //TODO
-	node2 := newPeerNode(2, node1.id) //TODO
-	closeRpcServer := node2.StartRpcServer()
-	defer closeRpcServer()
-	rNode := rpcNode{
-		Id: node2.id,
-		Ip: "127.0.0.1",
-	}
-	closestIdList, err := rNode.findNode(1)
-	udwErr.PanicIfError(err)
-	udwTest.Equal(len(closestIdList), 1)
-	udwTest.Equal(closestIdList[0], uint64(1))
+	//node1 := newPeerNode(1) //TODO
+	//node2 := newPeerNode(2, node1.id) //TODO
+	//closeRpcServer := node2.StartRpcServer()
+	//defer closeRpcServer()
+	//rNode := rpcNode{
+	//	Id: node2.id,
+	//	Ip: "127.0.0.1",
+	//}
+	//closestIdList, err := rNode.findNode(1)
+	//udwErr.PanicIfError(err)
+	//udwTest.Equal(len(closestIdList), 1)
+	//udwTest.Equal(closestIdList[0], uint64(1))
 }
 
 //func TestRpcNodeFindValue(t *testing.T) {
