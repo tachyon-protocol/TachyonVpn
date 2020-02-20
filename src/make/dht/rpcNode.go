@@ -54,6 +54,24 @@ type rpcMessage struct {
 	value              []byte
 }
 
+func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
+	buf.WriteByte_(message.cmd)
+	buf.WriteBigEndUint32(message._idMessage)
+	buf.WriteBigEndUint64(message.idSender)
+	switch message.cmd {
+	case cmdFindNode, cmdFindValue:
+		buf.WriteBigEndUint64(message.targetId)
+	case cmdOkClosestRpcNodeList:
+		buf.WriteByte_(byte(len(message.closestRpcNodeList)))
+		for _, rNode := range message.closestRpcNodeList {
+			buf.WriteBigEndUint64(rNode.Id)
+			buf.WriteByte_(byte(len(rNode.Ip)))
+			buf.Write_(rNode.Ip)
+			buf.WriteBigEndUint16(rNode.Port)
+		}
+	}
+}
+
 func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
 	if len(buf) < 13 {
 		return message, errors.New("[d5tkk1grb1rk] input too short " + strconv.Itoa(len(buf)))
@@ -71,53 +89,6 @@ func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
 	return message, nil
 }
 
-func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
-	buf.WriteByte_(message.cmd)
-	buf.WriteBigEndUint32(message._idMessage)
-	buf.WriteBigEndUint64(message.idSender)
-	switch message.cmd {
-	case cmdFindNode, cmdFindValue:
-		buf.WriteBigEndUint64(message.targetId)
-	}
-}
-
-//func (message *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []byte, err error) {
-//	if len(message.data) < 1 {
-//		return nil, nil, errors.New("[88n4mc5439]")
-//	}
-//	switch message.cmd {
-//	case cmdOk:
-//		//TODO
-//		return nil, nil, nil
-//	case cmdOkClosestRpcNodeList:
-//		const oneRpcNodeSize = 8 + 4 + 2
-//		size := int(message.data[0])
-//		if size > 0 {
-//			closestRpcNodeList = make([]*rpcNode, 0, size)
-//			for i := 0; i < size; i++ {
-//				start := 1 + i*oneRpcNodeSize
-//				if i >= len(message.data) || start+oneRpcNodeSize > len(message.data) {
-//					udwLog.Log("[WARNING cc8t3643qe] size is", size, "but len(message.data) is", len(message.data))
-//					return closestRpcNodeList, nil, nil
-//				}
-//				rNode := &rpcNode{
-//					Id: binary.BigEndian.Uint64(message.data[start : start+8]),
-//				}
-//				start += 8
-//				rNode.Ip = message.data[start : start+4]
-//				start += 4
-//				rNode.Port = binary.BigEndian.Uint16(message.data[start : start+2])
-//				closestRpcNodeList = append(closestRpcNodeList, rNode)
-//			}
-//		}
-//		return closestRpcNodeList, nil, nil
-//	case cmdOkValue:
-//		return nil, message.data, nil
-//	default:
-//		return nil, nil, errors.New("[u4ecv1aqf1cx] parse failed: unknown cmd[" + strconv.Itoa(int(message.cmd)) + "]")
-//	}
-//}
-
 func newRandomMessageId() uint32 {
 	var tmpBuf [4]byte
 	_, err := rand.Read(tmpBuf[:])
@@ -130,7 +101,7 @@ func newRandomMessageId() uint32 {
 
 type rpcNode struct {
 	Id   uint64
-	Ip   []byte //TODO support IPv6 address
+	Ip   net.IP
 	Port uint16
 
 	callerId         uint64
@@ -149,9 +120,9 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 	defer rNode.lock.Unlock()
 	if rNode.conn == nil {
 		if debugRpcLog {
-			udwLog.Log("[rpcNode call] new conn to", net.IP(rNode.Ip).To4().String())
+			udwLog.Log("[rpcNode call] new conn to", rNode.Ip.To4().String())
 		}
-		conn, err := net.Dial("udp", net.IP(rNode.Ip).To4().String()+":"+strconv.Itoa(int(rNode.Port)))
+		conn, err := net.Dial("udp", rNode.Ip.To4().String()+":"+strconv.Itoa(int(rNode.Port)))
 		if err != nil {
 			return response, errors.New("[y9e4v8pvp7]" + err.Error())
 		}

@@ -31,7 +31,7 @@ func TestRpcNodeFindNode_one_to_one(t *testing.T) {
 		bootstrapRpcNodeList: []*rpcNode{
 			{
 				Id:   2,
-				Ip:   net.ParseIP("127.0.0.1").To4(),
+				Ip:   net.ParseIP("127.0.0.1"),
 				Port: 60002,
 			},
 		},
