@@ -73,7 +73,8 @@ func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
 }
 
 func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
-	if len(buf) < 13 {
+	minSize := 13
+	if len(buf) < minSize {
 		return message, errors.New("[d5tkk1grb1rk] input too short " + strconv.Itoa(len(buf)))
 	}
 	message.cmd = buf[0]
@@ -81,10 +82,43 @@ func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
 	message.idSender = binary.BigEndian.Uint64(buf[5:13])
 	switch message.cmd {
 	case cmdFindNode, cmdFindValue:
-		if len(buf) < 13+8 {
+		if len(buf) < minSize+8 {
 			return message, errors.New("[bpc1cpn8d2h] input too short " + strconv.Itoa(len(buf)))
 		}
 		message.targetId = binary.BigEndian.Uint64(buf[13 : 13+8])
+	case cmdOkClosestRpcNodeList:
+		if len(buf) < minSize+1 {
+			return message, errors.New("[bdk1fs7q1kkr]")
+		}
+		minSize += 1
+		index := 14
+		nodeSize := int(buf[13])
+		message.closestRpcNodeList = make([]*rpcNode, 0, nodeSize)
+		for i := 0; i < nodeSize; i++ {
+			rNode := &rpcNode{}
+			if len(buf) < index+8 {
+				return message, errors.New("mvd4hpy1tpf")
+			}
+			rNode.Id = binary.BigEndian.Uint64(buf[index : index+8])
+			index += 8
+			if len(buf) < index {
+				return message, errors.New("s4g6wak1zcy")
+			}
+			ipSize := int(buf[index])
+			index += 1
+			if len(buf) < index+ipSize {
+				return message, errors.New("3d4675k29f")
+			}
+			rNode.Ip = make([]byte, ipSize)
+			copy(rNode.Ip, buf[index:index+ipSize])
+			index += ipSize
+			if len(buf) < index+2 {
+				return message, errors.New("dyn9hcd1j8d")
+			}
+			rNode.Port = binary.BigEndian.Uint16(buf[index : index+2])
+			index += 2
+			message.closestRpcNodeList = append(message.closestRpcNodeList, rNode)
+		}
 	}
 	return message, nil
 }
