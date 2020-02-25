@@ -151,7 +151,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 		if debugRpcLog {
 			udwLog.Log("[rpcNode call] new conn to", net.IP(rNode.Ip).To4().String())
 		}
-		conn, err := net.Dial("udp", net.IP(rNode.Ip).To4().String()+":"+strconv.Itoa(rpcPort))
+		conn, err := net.Dial("udp", net.IP(rNode.Ip).To4().String()+":"+strconv.Itoa(int(rNode.Port)))
 		if err != nil {
 			return response, errors.New("[y9e4v8pvp7]" + err.Error())
 		}
