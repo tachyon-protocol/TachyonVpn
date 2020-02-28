@@ -7,7 +7,25 @@ import (
 	"testing"
 )
 
-func TestRpcMessageEncodeDecode(t *testing.T) {
+func TestRpcMessageEncodeDecode_cmdFindNode(t *testing.T) {
+	message := rpcMessage{
+		cmd:        cmdFindNode,
+		_idMessage: 9,
+		idSender:   2,
+
+		targetId: 1,
+	}
+	buf := udwBytes.NewBufWriter(nil)
+	rpcMessageEncode(buf, message)
+	_message, err := rpcMessageDecode(buf.GetBytes())
+	udwTest.Equal(err, nil)
+	udwTest.Equal(_message.cmd, message.cmd)
+	udwTest.Equal(_message._idMessage, message._idMessage)
+	udwTest.Equal(_message.idSender, message.idSender)
+	udwTest.Equal(_message.targetId, message.targetId)
+}
+
+func TestRpcMessageEncodeDecode_cmdOkClosestRpcNodeList(t *testing.T) {
 	message := rpcMessage{
 		cmd: cmdOkClosestRpcNodeList,
 		closestRpcNodeList: []*rpcNode{

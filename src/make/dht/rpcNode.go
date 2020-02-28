@@ -47,7 +47,6 @@ type rpcMessage struct {
 	cmd        byte
 	_idMessage uint32 //do not set this manually
 	idSender   uint64
-	portSender uint16
 
 	targetId           uint64
 	closestRpcNodeList []*rpcNode
@@ -170,7 +169,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 	//request.encode(&rNode.wBuf)
 	rpcMessageEncode(&rNode.wBuf, request)
 	if debugRpcLog {
-		udwLog.Log("[rpcNode call] send", getCmdString(request.cmd), request._idMessage)
+		udwLog.Log("[rpcNode call] send", getCmdString(request.cmd), "_idMessage",request._idMessage)
 	}
 	_, err = rNode.conn.Write(rNode.wBuf.GetBytes())
 	if err != nil {
