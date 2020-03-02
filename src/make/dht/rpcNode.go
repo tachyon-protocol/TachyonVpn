@@ -169,7 +169,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 	//request.encode(&rNode.wBuf)
 	rpcMessageEncode(&rNode.wBuf, request)
 	if debugRpcLog {
-		udwLog.Log("[rpcNode call] send", getCmdString(request.cmd), "_idMessage",request._idMessage)
+		udwLog.Log("[rpcNode call] send", getCmdString(request.cmd), "_idMessage:",request._idMessage)
 	}
 	_, err = rNode.conn.Write(rNode.wBuf.GetBytes())
 	if err != nil {
@@ -193,18 +193,16 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 			continue
 		}
 		if response._idMessage == request._idMessage {
+			if debugRpcLog {
+				udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage)
+			}
 			switch response.cmd {
-			case cmdOk:
-				if debugRpcLog {
-					udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage)
-				}
+			case cmdOkClosestRpcNodeList:
 				return response, nil
 			//case cmdError:
 			//	return nil, errors.New("[mnh3apk1u8b] error[" + string(response.data) + "]")
 			default:
-				if debugRpcLog {
-					udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage)
-				}
+				udwLog.Log("[rpcNode call] receive a unexpected cmd")
 				continue
 			}
 		}
