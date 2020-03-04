@@ -1,5 +1,5 @@
 # TachyonVpn
-A Decentralized VPN that uses Tachyon Protocol and is served by Tachyon's global [node network](https://tachyon.eco/?n=yr8mtzfwee.Network).  
+A Decentralized VPN that uses Tachyon Protocol and is served by our global [node network](https://tachyon.eco/?n=yr8mtzfwee.Network).  
 
 
 ## Build
