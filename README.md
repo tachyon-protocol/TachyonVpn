@@ -1,5 +1,9 @@
 # TachyonVpn
-A Decentralized VPN to Unblock the New Internet of Democracy, Privacy, Security and High Speed.
+A Decentralized VPN that uses Tachyon Protocol and is served by Tachyon's global [node network](https://tachyon.eco/?n=yr8mtzfwee.Network).  
+
+
+## Build
+
 
 ## Usage
 ### Direct Mode
