@@ -61,6 +61,12 @@ func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
 	switch message.cmd {
 	case cmdFindNode, cmdFindValue:
 		buf.WriteBigEndUint64(message.targetId)
+	case cmdOkClosestRpcNodeList:
+		buf.WriteByte_(byte(len(message.closestRpcNodeList)))
+		for _, rNode := range message.closestRpcNodeList {
+			buf.WriteBigEndUint64(rNode.Id)
+			ip := net.IP(rNode.Ip).To4()
+		}
 	}
 }
 
