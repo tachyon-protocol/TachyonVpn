@@ -54,6 +54,16 @@ type rpcMessage struct {
 	value              []byte
 }
 
+func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
+	buf.WriteByte_(message.cmd)
+	buf.WriteBigEndUint32(message._idMessage)
+	buf.WriteBigEndUint64(message.idSender)
+	switch message.cmd {
+	case cmdFindNode, cmdFindValue:
+		buf.WriteBigEndUint64(message.targetId)
+	}
+}
+
 func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
 	if len(buf) < 13 {
 		return message, errors.New("[d5tkk1grb1rk] input too short " + strconv.Itoa(len(buf)))
@@ -69,16 +79,6 @@ func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
 		message.targetId = binary.BigEndian.Uint64(buf[13 : 13+8])
 	}
 	return message, nil
-}
-
-func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
-	buf.WriteByte_(message.cmd)
-	buf.WriteBigEndUint32(message._idMessage)
-	buf.WriteBigEndUint64(message.idSender)
-	switch message.cmd {
-	case cmdFindNode, cmdFindValue:
-		buf.WriteBigEndUint64(message.targetId)
-	}
 }
 
 //func (message *rpcMessage) parseData() (closestRpcNodeList []*rpcNode, value []byte, err error) {
