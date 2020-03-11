@@ -1,7 +1,6 @@
 package dht
 
 import (
-	"fmt"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwClose"
 	"github.com/tachyon-protocol/udw/udwErr"
@@ -37,7 +36,6 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				udwLog.Log("[xj4w3w2yh9]", err)
 				continue
 			}
-			fmt.Println(">>> request.targetId",request.targetId)
 			response := rpcMessage{
 				idSender:   node.id,
 				_idMessage: request._idMessage,

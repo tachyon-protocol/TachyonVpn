@@ -38,12 +38,10 @@ func TestRpcNodeFindNode_one_to_one(t *testing.T) {
 	})
 	close1 := node1.StartRpcServer()
 	defer close1()
-	//node2 := newPeerNode(newPeerNodeRequest{
-	//	id:   2,
-	//	port: 60002,
-	//})
-	//close2 := node2.StartRpcServer()
-	//defer close2()
+	//noinspection SpellCheckingInspection
+	data := []byte("1drnk7yc53frym6qe2saupptppytj7cbk")
+	dataKey := hash(data)
+	node1.store(data)
 	node3 := newPeerNode(newPeerNodeRequest{
 		id: 3,
 		bootstrapRpcNodeList: []*rpcNode{
@@ -58,6 +56,8 @@ func TestRpcNodeFindNode_one_to_one(t *testing.T) {
 	udwTest.Equal(len(closestRpcNodeList), 1)
 	udwTest.Equal(closestRpcNodeList[0].Id, uint64(2))
 	udwTest.Equal(closestRpcNodeList[0].Port, uint16(60002))
+	v := node3.findValue(dataKey)
+	udwTest.Equal(string(v), string(data))
 }
 
 //func TestRpcNodeFindValue(t *testing.T) {

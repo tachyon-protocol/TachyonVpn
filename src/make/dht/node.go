@@ -210,6 +210,7 @@ func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 		if rNode.Id == node.id {
 			continue
 		}
+		rNode.callerId = node.id
 		cps := sizeOfCommonPrefix(rNode.Id, node.id)
 		m := node.kBuckets[cps]
 		if m == nil {
