@@ -10,12 +10,10 @@ import (
 )
 
 func (node *peerNode) StartRpcServer() (close func()) {
-	if node.port == 0 {
-		panic("node.port can't be 0")
-	}
 	closer := udwClose.NewCloser()
 	packetConn, err := net.ListenPacket("udp", ":"+strconv.Itoa(int(node.port)))
 	udwErr.PanicIfError(err)
+	 net.UDPAddr{} packetConn.LocalAddr()
 	closer.AddOnClose(func() {
 		_ = packetConn.Close()
 	})

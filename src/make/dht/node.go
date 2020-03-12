@@ -36,10 +36,6 @@ func newPeerNode(req newPeerNodeRequest) *peerNode {
 		kBuckets: [64]map[uint64]*rpcNode{},
 	}
 	n.updateBuckets(req.bootstrapRpcNodeList)
-	if debugMemoryMode {
-		rpcInMemoryRegister(n)
-	}
-	//n.findNode(n.id)//TODO find self
 	return n
 }
 
@@ -191,6 +187,7 @@ func (node *peerNode) getRpcNode(id uint64) *rpcNode {
 	return nil
 }
 
+//TODO
 func (node *peerNode) deleteRpcNode(id uint64) {
 	cps := sizeOfCommonPrefix(id, node.id)
 	node.lock.Lock()
