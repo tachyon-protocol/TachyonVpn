@@ -13,7 +13,6 @@ func (node *peerNode) StartRpcServer() (close func()) {
 	closer := udwClose.NewCloser()
 	packetConn, err := net.ListenPacket("udp", ":"+strconv.Itoa(int(node.port)))
 	udwErr.PanicIfError(err)
-	 net.UDPAddr{} packetConn.LocalAddr()
 	closer.AddOnClose(func() {
 		_ = packetConn.Close()
 	})
