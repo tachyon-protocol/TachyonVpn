@@ -6,24 +6,6 @@ import (
 	"testing"
 )
 
-//func TestRpcNodeStore(t *testing.T) {
-//	node := newPeerNode(1) //TODO
-//	closeRpcServer := node.StartRpcServer()
-//	defer closeRpcServer()
-//	rNode := rpcNode{
-//		Id: node.id,
-//		Ip: "127.0.0.1",
-//	}
-//	const data = "Hyperion"
-//	key := hash([]byte(data))
-//	err := rNode.store([]byte(data))
-//	udwTest.Equal(err, nil)
-//	node.lock.RLock()
-//	v := node.keyMap[key]
-//	node.lock.RUnlock()
-//	udwTest.Equal(string(v), data)
-//}
-
 func TestRpcNodeFindNode_one_to_one(t *testing.T) {
 	node1 := newPeerNode(newPeerNodeRequest{
 		id:   1,
