@@ -53,6 +53,19 @@ The image will be updated with Linux version.
 ### demo-v2 Support P2P Relay Mode
 ### demo-v1 First Demo
 ## Tachyon Protocol Plan
+### 2020-3-9
+* Improve Test Coverage
+* DHT IPv6 Support
+### 2020-3-2
+* Add server list automatically
+* Support 20 Global locations
+### 2020-2-17
+* DHT FIND_NODE fix nil reference BUG
+* Refactor DHT and Encapsulate the message protocol
+* Complement all DHT RPC related tests
+### 2020-2-10
+* Optimize the connection experience
+* Optimize the process of adding Servers
 ### 2020-2-5
 * DHT RpcNode API refactor in progress 
 ### 2020-1-21
