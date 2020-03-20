@@ -60,36 +60,14 @@ func TestRpcNodeFindNode_one_to_one(t *testing.T) {
 	udwTest.Equal(string(v), string(data))
 }
 
-//func TestRpcNodeFindValue(t *testing.T) {
-//	const data = "Hyperion"
-//	key := hash([]byte(data))
-//	node1 := newPeerNode(key)
-//	node1.store([]byte(data))
-//	node2 := newPeerNode(2, node1.id)
-//	closeRpcServerNode2 := node2.StartRpcServer()
-//	rNode2 := rpcNode{
-//		Id: node2.id,
-//		Ip: "127.0.0.1",
-//	}
-//	closestIdList, value, err := rNode2.find(key)
-//	udwErr.PanicIfError(err)
-//	udwTest.Equal(len(closestIdList), 1)
-//	closestId := closestIdList[0]
-//	udwTest.Equal(closestId, node1.id)
-//	udwTest.Equal(value, []byte{})
-//	closeRpcServerNode2()
-//
-//	closeRpcServerNode1 := node1.StartRpcServer()
-//	defer closeRpcServerNode1()
-//	rNodeClosest := rpcNode{
-//		Id: closestId,
-//		Ip: "127.0.0.1",
-//	}
-//	closestIdList, value, err = rNodeClosest.find(key)
-//	udwErr.PanicIfError(err)
-//	udwTest.Ok(len(closestIdList)==0)
-//	udwTest.Equal(string(value), data)
-//}
+func TestRpcServerRandomPort(t *testing.T) {
+	node1 := newPeerNode(newPeerNodeRequest{
+		id:   1,
+	})
+	close1 := node1.StartRpcServer()
+	defer close1()
+	udwTest.Ok(node1.port!=0)
+}
 
 //var responseTimeoutError = errors.New("timeout")
 
