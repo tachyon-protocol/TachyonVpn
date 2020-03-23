@@ -36,6 +36,10 @@ func getCmdString(cmd byte) string {
 		return "FIND_VALUE"
 	case cmdOk:
 		return "OK"
+	case cmdOkClosestRpcNodeList:
+		return "OK_CLOSEST"
+	case cmdOkValue:
+		return "OK_VALUE"
 	//case cmdError:
 	//	return "ERROR"
 	default:
@@ -68,6 +72,8 @@ func rpcMessageEncode(buf *udwBytes.BufWriter, message rpcMessage) {
 			buf.Write_(rNode.Ip)
 			buf.WriteBigEndUint16(rNode.Port)
 		}
+	case cmdOkValue:
+		buf.Write_(message.value)
 	}
 }
 
@@ -118,6 +124,12 @@ func rpcMessageDecode(buf []byte) (message rpcMessage, err error) {
 			index += 2
 			message.closestRpcNodeList = append(message.closestRpcNodeList, rNode)
 		}
+	case cmdOkValue:
+		message.value = buf[13:]
+		if len(buf) > 13 {
+			message.value = make([]byte, len(buf[13:]))
+			copy(message.value, buf[13:])
+		}
 	}
 	return message, nil
 }
@@ -152,10 +164,11 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 	rNode.lock.Lock()
 	defer rNode.lock.Unlock()
 	if rNode.conn == nil {
+		address := rNode.Ip.To4().String() + ":" + strconv.Itoa(int(rNode.Port))
 		if debugRpcLog {
-			udwLog.Log("[rpcNode call] new conn to", rNode.Ip.To4().String())
+			udwLog.Log("[rpcNode call] new conn to", address)
 		}
-		conn, err := net.Dial("udp", rNode.Ip.To4().String()+":"+strconv.Itoa(int(rNode.Port)))
+		conn, err := net.Dial("udp", address)
 		if err != nil {
 			return response, errors.New("[y9e4v8pvp7]" + err.Error())
 		}
@@ -169,7 +182,7 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 	//request.encode(&rNode.wBuf)
 	rpcMessageEncode(&rNode.wBuf, request)
 	if debugRpcLog {
-		udwLog.Log("[rpcNode call] send", getCmdString(request.cmd), "_idMessage:",request._idMessage)
+		udwLog.Log("[rpcNode call]", request.idSender, "send", getCmdString(request.cmd), "to", rNode.Id, "_idMessage:", request._idMessage)
 	}
 	_, err = rNode.conn.Write(rNode.wBuf.GetBytes())
 	if err != nil {
@@ -194,13 +207,11 @@ func (rNode *rpcNode) call(request rpcMessage) (response rpcMessage, err error) 
 		}
 		if response._idMessage == request._idMessage {
 			if debugRpcLog {
-				udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), response._idMessage)
+				udwLog.Log("[rpcNode call] receive", getCmdString(response.cmd), "_idMessage:", response._idMessage)
 			}
 			switch response.cmd {
-			case cmdOkClosestRpcNodeList:
+			case cmdOkClosestRpcNodeList, cmdOkValue:
 				return response, nil
-			//case cmdError:
-			//	return nil, errors.New("[mnh3apk1u8b] error[" + string(response.data) + "]")
 			default:
 				udwLog.Log("[rpcNode call] receive a unexpected cmd")
 				continue

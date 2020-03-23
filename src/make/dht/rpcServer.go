@@ -1,22 +1,22 @@
 package dht
 
 import (
-	"fmt"
 	"github.com/tachyon-protocol/udw/udwBytes"
 	"github.com/tachyon-protocol/udw/udwClose"
 	"github.com/tachyon-protocol/udw/udwErr"
 	"github.com/tachyon-protocol/udw/udwLog"
+	"github.com/tachyon-protocol/udw/udwStrconv"
 	"net"
 	"strconv"
 )
 
 func (node *peerNode) StartRpcServer() (close func()) {
-	if node.port == 0 {
-		panic("node.port can't be 0")
-	}
 	closer := udwClose.NewCloser()
 	packetConn, err := net.ListenPacket("udp", ":"+strconv.Itoa(int(node.port)))
 	udwErr.PanicIfError(err)
+	_, portStr, err := net.SplitHostPort(packetConn.LocalAddr().String())
+	udwErr.PanicIfError(err)
+	node.port = uint16(udwStrconv.MustParseInt(portStr))
 	closer.AddOnClose(func() {
 		_ = packetConn.Close()
 	})
@@ -37,7 +37,6 @@ func (node *peerNode) StartRpcServer() (close func()) {
 				udwLog.Log("[xj4w3w2yh9]", err)
 				continue
 			}
-			fmt.Println(">>> request.targetId",request.targetId)
 			response := rpcMessage{
 				idSender:   node.id,
 				_idMessage: request._idMessage,
