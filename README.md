@@ -53,6 +53,8 @@ The image will be updated with Linux version.
 ### demo-v2 Support P2P Relay Mode
 ### demo-v1 First Demo
 ## Tachyon Protocol Plan
+### 2020-328
+* Kademlia Node ID Generation
 ### 2020-3-9
 * Improve Test Coverage
 * DHT IPv6 Support
