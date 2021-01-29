@@ -5,7 +5,6 @@ import (
 	"github.com/tachyon-protocol/udw/udwCryptoSha3"
 	"github.com/tachyon-protocol/udw/udwLog"
 	"github.com/tachyon-protocol/udw/udwMath"
-	"github.com/tachyon-protocol/udw/udwNet"
 	"github.com/tachyon-protocol/udw/udwRand"
 	"github.com/tachyon-protocol/udw/udwSortedMap"
 	"math"
@@ -99,8 +98,12 @@ func (node *peerNode) find(targetId uint64, isValue bool) (closestIdList []uint6
 			//_node := rpcInMemoryGetNode(id)
 			_node := node.getRpcNode(id)
 			//_closestIdList, _value := _node.findLocal(node.id, targetId, isValue)
+			var (
+			)
 			if isValue {
 				closestIdList, value, err := _node.findValue(targetId)
+				if value != nil {
+				}
 			} else {
 				closestIdList, err := _node.findNode(targetId)
 			}
@@ -188,19 +191,19 @@ func (node *peerNode) updateBuckets(rpcNodeList []*rpcNode) {
 		if rNode == nil {
 			continue
 		}
-		if rNode.id == node.id {
+		if rNode.Id == node.id {
 			continue
 		}
-		cps := sizeOfCommonPrefix(rNode.id, node.id)
+		cps := sizeOfCommonPrefix(rNode.Id, node.id)
 		m := node.kBuckets[cps]
 		if m == nil {
 			m = map[uint64]*rpcNode{}
 		}
-		if m[rNode.id] == nil {
-			m[rNode.id] = rNode
+		if m[rNode.Id] == nil {
+			m[rNode.Id] = rNode
 			node.kBuckets[cps] = m
 			if debugDhtLog {
-				udwLog.Log("[updateBuckets]", node.id, "add new rpcNode", rNode.id, "cps", cps)
+				udwLog.Log("[updateBuckets]", node.id, "add new rpcNode", rNode.Id, "cps", cps)
 			}
 		}
 	}
@@ -228,7 +231,7 @@ func (node *peerNode) gcBuckets() {
 	for _, rNode := range checkList {
 		err := rNode.ping()
 		if err != nil {
-			node.deleteRpcNode(rNode.id)
+			node.deleteRpcNode(rNode.Id)
 		} else {
 			rNode.lock.Lock()
 			rNode.lastResponseTime = time.Now()

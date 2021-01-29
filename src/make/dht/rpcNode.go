@@ -96,15 +96,16 @@ func newRandomMessageId() uint32 {
 }
 
 type rpcNode struct {
-	callerId uint64
-	id     uint64
-	ip     string
-	port   uint32
-	closer udwClose.Closer
-	lock   sync.Mutex
-	conn   net.Conn
-	wBuf   udwBytes.BufWriter
-	rBuf   []byte
+	Id               uint64
+	Ip               string //TODO support IPv6 address
+	Port             uint32
+
+	callerId         uint64
+	closer           udwClose.Closer
+	lock             sync.Mutex
+	conn             net.Conn
+	wBuf             udwBytes.BufWriter
+	rBuf             []byte
 	lastResponseTime time.Time //TODO update this when any rpc request sent
 }
 
@@ -115,9 +116,9 @@ func (rNode *rpcNode) call(request rpcMessage) (response *rpcMessage, err error)
 	defer rNode.lock.Unlock()
 	if rNode.conn == nil {
 		if debugRpcLog {
-			udwLog.Log("[rpcNode call] new conn to", rNode.ip)
+			udwLog.Log("[rpcNode call] new conn to", rNode.Ip)
 		}
-		conn, err := net.Dial("udp", rNode.ip+":"+strconv.Itoa(rpcPort))
+		conn, err := net.Dial("udp", rNode.Ip+":"+strconv.Itoa(rpcPort))
 		if err != nil {
 			return nil, errors.New("[y9e4v8pvp7]" + err.Error())
 		}
@@ -213,7 +214,7 @@ func (rNode *rpcNode) findNode(targetId uint64) (closestIdList []uint64, err err
 	return
 }
 
-func (rNode *rpcNode) findValue(key uint64) (closestIdList []uint64, value []byte, err error) {
+func (rNode *rpcNode) findValue(key uint64) (closestRpcNodeList []*rpcNode, value []byte, err error) {
 	req := rpcMessage{
 		cmd:      cmdFindValue,
 		idSender: rNode.callerId,
